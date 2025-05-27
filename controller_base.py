@@ -38,21 +38,24 @@ class ControllerBase(ABC, Generic[T]):
             model_class.__name__ if model_class else self.__class__.__name__
         )
 
-    def get_headers(self, pop_content_type: bool = False) -> Dict[str, str]:
+    def get_headers(
+        self, accept: str = "application/json", content_type: str = "application/json"
+    ) -> Dict[str, str]:
         """
         Generate headers for API requests
+
+        Args:
+            accept (str): Accept header value for the request
+            content_type (str): Content-Type header value for the request
 
         Returns:
             Dict[str, str]: Dictionary containing headers for API requests
         """
         headers = {
             "Authorization": f"Bearer {self.api_token}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
+            "Accept": accept,
+            "Content-Type": content_type,
         }
-
-        if pop_content_type:
-            headers.pop("Content-Type", None)
 
         return headers
 
@@ -300,18 +303,17 @@ class ControllerBase(ABC, Generic[T]):
 
         return result
 
-    def update(self, resource_id: int, model: T) -> Optional[T]:
+    def update(self, model: T) -> Optional[T]:
         """
         Update an existing resource by its ID
 
         Args:
-            resource_id (int): ID of the resource to update
             model (T): Model instance with updated data
 
         Returns:
             Optional[T]: Updated resource as a model instance, or None if an error occurs
         """
-        url = f"{self.api_url}/{self.resource}/{resource_id}"
+        url = f"{self.api_url}/{self.resource}/{model.id}"
         headers = self.get_headers()
 
         data = self.convert_to_json(model)
@@ -326,12 +328,12 @@ class ControllerBase(ABC, Generic[T]):
         )
 
         if response.status_code in (200, 204):
-            self.logger.log_info(f"Updated {self.resource} with ID {resource_id}")
+            self.logger.log_info(f"Updated {self.resource} with ID {model.id}")
             result = self.convert_to_model(response.json())
             result = result[0] if isinstance(result, list) else result
         elif response.status_code == 404:
             self.logger.log_warning(
-                f"{self.resource.capitalize()} with ID {resource_id} not found"
+                f"{self.resource.capitalize()} with ID {model.id} not found"
             )
         elif response.status_code == 409:
             self.logger.log_warning(
@@ -339,7 +341,7 @@ class ControllerBase(ABC, Generic[T]):
             )
         else:
             self.logger.log_error(
-                f"Error updating {self.resource} with ID {resource_id}: "
+                f"Error updating {self.resource} with ID {model.id}: "
                 f"{response.status_code} - {response.text}"
             )
 

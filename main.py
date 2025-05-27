@@ -3,10 +3,10 @@ Main module for the Savefile Manager application
 Handles initialization and execution of the application
 """
 
+import argparse
 from enum import Enum
 import os
 import re
-import sys
 from typing import Optional, Union
 
 import dotenv
@@ -17,6 +17,44 @@ from models import Console, Savefile
 from savefile_controller import SavefileController
 
 logger = Logger(file_log_level=LogLevel.NONE, print_log_level=LogLevel.DEBUG)
+
+
+class CrawlingMode(Enum):
+    """Enum for crawling modes"""
+
+    # Uploads only already existing savefiles by last modified date
+    UPDATE = 1
+
+    # Uploads every already existing savefile
+    FORCE = 2
+
+    # Uploads only new savefiles and ignores existing ones
+    NEW = 3
+
+    # Uploads new savefiles and updates existing ones by last modified date
+    AUTO = 4
+
+    # Uploads every savefile present in the directory
+    ALL = 5
+
+
+class DownloadingMode(Enum):
+    """Enum for download modes"""
+
+    # Downloads only already existing savefiles by last modified date
+    UPDATE = 1
+
+    # Downloads every already existing savefile
+    FORCE = 2
+
+    # Downloads only new savefiles and ignores existing ones
+    NEW = 3
+
+    # Downloads new savefiles and updates existing ones by last modified date
+    AUTO = 4
+
+    # Downloads every savefile present in the directory
+    ALL = 5
 
 
 def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
@@ -81,21 +119,37 @@ def get_controllers(api_url: str, token: str, ssl_cert: Union[str, bool]):
     return console_controller, savefile_controller
 
 
-def get_crawling_mode():
-    """Get the crawling mode from command line arguments"""
-    match sys.argv[1:] if len(sys.argv) > 1 else [""]:
-        case ["-u", *_]:
-            crawling_mode = CrawlingMode.UPDATE
-        case ["-f", *_]:
-            crawling_mode = CrawlingMode.FORCE
-        case ["-n", *_]:
-            crawling_mode = CrawlingMode.NEW
-        case ["-a", *_]:
-            crawling_mode = CrawlingMode.ALL
-        case _:
-            crawling_mode = CrawlingMode.AUTO
+def get_crawling_downloading_mode() -> tuple[CrawlingMode, DownloadingMode]:
+    """Get the crawling and downloading modes from command line arguments"""
+    parser = argparse.ArgumentParser(description="Savefile Manager Scripts")
 
-    return crawling_mode
+    parser.add_argument(
+        "-c",
+        "--crawl",
+        choices=["u", "f", "n", "a", "l"],
+        default="a",
+        help="Crawling mode (u=update, f=force, n=new, a=auto, l=all)",
+    )
+
+    parser.add_argument(
+        "-d",
+        "--download",
+        choices=["u", "f", "n", "a", "l"],
+        default="a",
+        help="Downloading mode (u=update, f=force, n=new, a=auto, l=all)",
+    )
+    args = parser.parse_args()
+
+    # Mapping shortcut to Enum
+    shortcut_map = {"u": "update", "f": "force", "n": "new", "a": "auto", "l": "all"}
+
+    crawl_mode = CrawlingMode(shortcut_map[args.crawl])
+    downloading_mode = DownloadingMode(shortcut_map[args.download])
+
+    logger.log_info(f"Crawling mode selected: {crawl_mode.name}")
+    logger.log_info(f"Downloading mode selected: {downloading_mode.name}")
+
+    return (crawl_mode, downloading_mode)
 
 
 def retrieve_console(
@@ -134,7 +188,6 @@ def _handle_new_savefile(
 
 def _handle_existing_savefile(
     savefile: Savefile,
-    savefile_id: int,
     savefile_controller: SavefileController,
     crawling_mode: Enum,
 ) -> str:
@@ -151,7 +204,9 @@ def _handle_existing_savefile(
 
     # For automatic update, check if update is needed
     if crawling_mode in (CrawlingMode.AUTO, CrawlingMode.UPDATE):
-        existing_savefile = savefile_controller.get(savefile_id)
+        existing_savefile = (
+            savefile_controller.get(savefile.id) if savefile.id is not None else None
+        )
 
         if not existing_savefile:
             logger.log_info(
@@ -168,7 +223,7 @@ def _handle_existing_savefile(
 
     # Update the savefile
     logger.log_info(f"Updating savefile '{savefile.name}' in console '{console_name}'")
-    result = savefile_controller.update(savefile_id, savefile)
+    result = savefile_controller.update(savefile)
     return "Updated" if result else "Failed"
 
 
@@ -181,15 +236,13 @@ def handle_savefile_updating(
     if isinstance(search_result, list):
         search_result = search_result[0] if search_result else None
 
-    savefile_id = search_result.id if search_result else None
+    savefile.id = search_result.id if search_result else None
 
     # Handle based on whether the savefile exists
-    if not savefile_id:
+    if not savefile.id:
         return _handle_new_savefile(savefile, savefile_controller, crawling_mode)
 
-    return _handle_existing_savefile(
-        savefile, savefile_id, savefile_controller, crawling_mode
-    )
+    return _handle_existing_savefile(savefile, savefile_controller, crawling_mode)
 
 
 def handle_save_downloading(
@@ -204,7 +257,7 @@ def handle_save_downloading(
     )
 
     if os.path.exists(local_savefile_path):
-        if downloading_mode == DownloadMode.NEW:
+        if downloading_mode == DownloadingMode.NEW:
             logger.log_info(
                 f"Skipping savefile '{remote_savefile.name}', "
                 f"savefile already exists in local path '{local_savefile_path}'"
@@ -212,7 +265,7 @@ def handle_save_downloading(
 
             return "Skipped"
 
-        if downloading_mode in (DownloadMode.AUTO, DownloadMode.UPDATE):
+        if downloading_mode in (DownloadingMode.AUTO, DownloadingMode.UPDATE):
             existing_savefile = os.stat(local_savefile_path)
 
             if (
@@ -347,44 +400,6 @@ def download_savefiles(
         )
 
 
-class CrawlingMode(Enum):
-    """Enum for crawling modes"""
-
-    # Uploads only already existing savefiles by last modified date
-    UPDATE = 1
-
-    # Uploads every already existing savefile
-    FORCE = 2
-
-    # Uploads only new savefiles and ignores existing ones
-    NEW = 3
-
-    # Uploads new savefiles and updates existing ones by last modified date
-    AUTO = 4
-
-    # Uploads every savefile present in the directory
-    ALL = 5
-
-
-class DownloadMode(Enum):
-    """Enum for download modes"""
-
-    # Downloads only already existing savefiles by last modified date
-    UPDATE = 1
-
-    # Downloads every already existing savefile
-    FORCE = 2
-
-    # Downloads only new savefiles and ignores existing ones
-    NEW = 3
-
-    # Downloads new savefiles and updates existing ones by last modified date
-    AUTO = 4
-
-    # Downloads every savefile present in the directory
-    ALL = 5
-
-
 def main():
     """
     Main entry point of the application. Initializes the logger, loads environment
@@ -416,7 +431,7 @@ def main():
 
         return
 
-    crawling_mode = get_crawling_mode()
+    crawling_mode, downloading_mode = get_crawling_downloading_mode()
 
     crawl_savefiles(
         console_names,
@@ -424,6 +439,14 @@ def main():
         console_controller,
         savefile_controller,
         crawling_mode,
+    )
+
+    download_savefiles(
+        console_names,
+        saves_paths,
+        console_controller,
+        savefile_controller,
+        downloading_mode,
     )
 
     AuthManager.logout(api_url, token, ssl_cert)

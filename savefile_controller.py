@@ -35,14 +35,23 @@ class SavefileController(ControllerBase[Savefile]):
         }
 
     @override
+    def get_headers(
+        self,
+        accept: str = "application/json",
+        content_type: str = "application/json",
+    ) -> Dict[str, str]:
+        headers = super().get_headers(accept, content_type)
+        headers.pop("Content-Type", None)
+        return headers
+
+    @override
     def get(self, resource_id: int, want_json: bool = True) -> Union[Savefile, None]:
         if want_json:
             return super().get(resource_id)
 
         # Make a request to download the file
         url = f"{self.api_url}/{self.resource}/{resource_id}"
-        headers = self.get_headers()
-        headers["Accept"] = "application/octet-stream"
+        headers = self.get_headers(accept="application/octet-stream")
 
         response = requests.get(
             url, headers=headers, verify=self.ssl_cert, stream=True, timeout=10
@@ -67,6 +76,7 @@ class SavefileController(ControllerBase[Savefile]):
         # Use model properties for filename and path
         filename = savefile_model.name or f"savefile_{resource_id}"
         relative_path = savefile_model.rel_path if savefile_model.rel_path else ""
+
         # Handle cases where path is just "/" or starts with "/"
         relative_path = relative_path.lstrip("/")
 
@@ -90,7 +100,7 @@ class SavefileController(ControllerBase[Savefile]):
     @override
     def save(self, model: Savefile) -> Union[Savefile, None]:
         url = f"{self.api_url}/{self.resource}"
-        headers = self.get_headers(pop_content_type=True)
+        headers = self.get_headers()
 
         data = super().convert_to_json(model)
 
@@ -119,6 +129,43 @@ class SavefileController(ControllerBase[Savefile]):
         else:
             self.logger.log_error(
                 f"Error creating {self.resource}: {response.status_code} - {response.text}"
+            )
+
+        return result
+
+    @override
+    def update(self, model: Savefile) -> Union[Savefile, None]:
+        url = f"{self.api_url}/{self.resource}/{model.id}"
+        headers = self.get_headers()
+
+        data = super().convert_to_json(model)
+
+        # PHP compatibility for PUT requests with multipart/form-data
+        data["_method"] = "PUT"
+
+        response = requests.post(
+            url,
+            data=data,
+            files={"savefile": model.savefile} if model.savefile else None,
+            headers=headers,
+            verify=self.ssl_cert,
+            timeout=10,
+        )
+        result = None
+
+        self.logger.log_debug(
+            f"PUT {url} - Response: {response.status_code} - {response.text}"
+        )
+
+        if response.status_code == 200:
+            self.logger.log_info(f"Updated {self.resource} {model.id}")
+            result = super().convert_to_model(response.json())
+            result = result[0] if isinstance(result, list) else result
+        elif response.status_code == 404:
+            self.logger.log_warning(f"{self.resource} {model.id} not found")
+        else:
+            self.logger.log_error(
+                f"Error updating {self.resource}: {response.status_code} - {response.text}"
             )
 
         return result
