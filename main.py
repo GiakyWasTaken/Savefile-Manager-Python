@@ -323,7 +323,7 @@ def handle_downloading_savefile(
     if savefile.id is None:
         return ProcessingResult.FAILED_DOWNLOAD
 
-    result = savefile_controller.get(savefile.id, download_file=True)
+    result = savefile_controller.get(savefile.id, download_path=savefile.abs_path)
 
     return ProcessingResult.DOWNLOADED if result else ProcessingResult.FAILED_DOWNLOAD
 
@@ -459,6 +459,11 @@ def retrieve_local_remote_savefiles(
         or []
     )
 
+    # Set the console for each remote savefile
+    for remote_savefile in remote_savefiles:
+        remote_savefile.console = console
+        remote_savefile.modified_at = None
+
     # Create a dictionary to track which remote files exist locally
     available_savefiles = {
         (savefile): SavefileAvailability.REMOTE for savefile in remote_savefiles
@@ -540,15 +545,15 @@ def crawl_savefiles(
         )
 
         logger.log_info(
-            f"Found {len(available_savefiles)} savefiles for console '{console.name}'\n"
+            f"Found {len(available_savefiles)} savefiles for console '{console.name}'"
         )
         logger.log_info(
             f"Remote only savefiles: "
-            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.REMOTE)}\n"
+            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.REMOTE)}"
         )
         logger.log_info(
             f"Local only savefiles: "
-            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.LOCAL)}\n"
+            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.LOCAL)}"
         )
         logger.log_info(
             f"Both remote and local savefiles: "
@@ -601,16 +606,22 @@ def print_results(results: dict[Console, list[int]]) -> None:
                 or counts[ProcessingResult.FAILED_DOWNLOAD.value :]
             )
 
+        logger.log_info(f"Results for Console: {console.name}")
+        logger.log_info(f"Created:          {counts[ProcessingResult.CREATED.value]}")
+        logger.log_info(f"Updated:          {counts[ProcessingResult.UPDATED.value]}")
         logger.log_info(
-            f"=== Results for Console: {console.name} ===\n"
-            f"  - Created:          {counts[ProcessingResult.CREATED.value]}\n"
-            f"  - Updated:          {counts[ProcessingResult.UPDATED.value]}\n"
-            f"  - Downloaded:       {counts[ProcessingResult.DOWNLOADED.value]}\n"
-            f"  - Skipped:          {counts[ProcessingResult.SKIPPED.value]}\n"
-            f"  - Ignored:          {counts[ProcessingResult.IGNORED.value]}\n"
-            f"  - Failed Creation:  {counts[ProcessingResult.FAILED_CREATION.value]}\n"
-            f"  - Failed Upload:    {counts[ProcessingResult.FAILED_UPLOAD.value]}\n"
-            f"  - Failed Download:  {counts[ProcessingResult.FAILED_DOWNLOAD.value]}"
+            f"Downloaded:       {counts[ProcessingResult.DOWNLOADED.value]}"
+        )
+        logger.log_info(f"Skipped:          {counts[ProcessingResult.SKIPPED.value]}")
+        logger.log_info(f"Ignored:          {counts[ProcessingResult.IGNORED.value]}")
+        logger.log_info(
+            f"Failed Creation:  {counts[ProcessingResult.FAILED_CREATION.value]}"
+        )
+        logger.log_info(
+            f"Failed Upload:    {counts[ProcessingResult.FAILED_UPLOAD.value]}"
+        )
+        logger.log_info(
+            f"Failed Download:  {counts[ProcessingResult.FAILED_DOWNLOAD.value]}"
         )
 
     if not any_failed:
@@ -618,7 +629,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
     else:
         logger.log_error("Crawling and downloading process completed with errors!")
 
-    logger.log_success(f"Total consoles processed: {len(results)}")
+    logger.log_success(f"Total consoles processed:            {len(results)}")
 
     if (
         console_failed := sum(
@@ -626,7 +637,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
         )
         > 0
     ):
-        logger.log_error(f"Total consoles with errors: {console_failed}")
+        logger.log_error(f"Total consoles with errors:          {console_failed}")
 
     total_processed = sum(sum(counts) for counts in results.values())
     total_created = sum(
@@ -644,12 +655,12 @@ def print_results(results: dict[Console, list[int]]) -> None:
     )
 
     if total_created + total_updated + total_downloaded + total_ignored_skipped > 0:
-        logger.log_success(f"Total savefiles processed: {total_processed}")
-        logger.log_success(f"Total savefiles created: {total_created}")
-        logger.log_success(f"Total savefiles updated: {total_updated}")
-        logger.log_success(f"Total savefiles downloaded: {total_downloaded}")
+        logger.log_success(f"Total savefiles processed:           {total_processed}")
+        logger.log_success(f"Total savefiles created:             {total_created}")
+        logger.log_success(f"Total savefiles updated:             {total_updated}")
+        logger.log_success(f"Total savefiles downloaded:          {total_downloaded}")
         logger.log_success(
-            f"Total savefiles ignored or skipped: {total_ignored_skipped}"
+            f"Total savefiles ignored or skipped:  {total_ignored_skipped}"
         )
 
     if (
@@ -661,7 +672,9 @@ def print_results(results: dict[Console, list[int]]) -> None:
         )
         > 0
     ):
-        logger.log_error(f"Total savefiles with errors: {total_savefiles_errors}")
+        logger.log_error(
+            f"Total savefiles with errors:         {total_savefiles_errors}"
+        )
 
 
 def main() -> None:

@@ -10,7 +10,7 @@ import os
 from typing import Dict, Optional, Union
 
 
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.000000Z"
 
 
 @dataclass
@@ -60,12 +60,12 @@ class Entity:
         return self._modified_at.strftime(DATE_FORMAT) if self._modified_at else ""
 
     @modified_at.setter
-    def modified_at(self, value: Union[datetime, str, float, int]) -> None:
+    def modified_at(self, value: Union[datetime, str, float, int, None]) -> None:
         """
         Set the modification timestamp of the entity
 
         Args:
-            value (Union[datetime, str, float, int]): Modification timestamp
+            value (Union[datetime, str, float, int, None]): Modification timestamp
         """
         if isinstance(value, str):
             self._modified_at = datetime.strptime(value, DATE_FORMAT)
@@ -214,12 +214,12 @@ class Savefile(Entity):
         return ""
 
     @modified_at.setter
-    def modified_at(self, value: Union[datetime, str, float, int]) -> None:
+    def modified_at(self, value: Union[datetime, str, float, int, None]) -> None:
         """
         Set the modification timestamp of the entity
 
         Args:
-            value (Union[datetime, str, float, int]): Modification timestamp
+            value (Union[datetime, str, float, int, None]): Modification timestamp
         """
         if isinstance(value, str):
             self._modified_at = datetime.strptime(value, DATE_FORMAT)

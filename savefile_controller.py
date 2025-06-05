@@ -4,8 +4,9 @@ Provides functionality to interact with savefile resources via API
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Union, override
+from typing import Any, Dict, Optional, Union, override
 
 import requests
 
@@ -46,10 +47,12 @@ class SavefileController(ControllerBase[Savefile]):
 
     @override
     def get(
-        self, resource_id: int, download_file: bool = False
+        self, resource_id: int, download_path: Optional[str] = None
     ) -> Union[Savefile, None]:
-        if not download_file:
-            return super().get(resource_id)
+        savefile_model = super().get(resource_id)
+
+        if download_path is None or savefile_model is None:
+            return savefile_model
 
         # Make a request to download the file
         url = f"{self.api_url}/{self.resource}/{resource_id}"
@@ -59,7 +62,9 @@ class SavefileController(ControllerBase[Savefile]):
             url, headers=headers, verify=self.ssl_cert, stream=True, timeout=10
         )
 
-        self.logger.log_debug(f"GET {url} - Response: {response.status_code}")
+        self.logger.log_debug(
+            f"GET {url} - Response: {response.status_code} - {response.text}"
+        )
 
         if response.status_code != 200:
             self.logger.log_error(
@@ -67,36 +72,24 @@ class SavefileController(ControllerBase[Savefile]):
             )
             return None
 
-        # Get the savefile details to determine the path and filename
-        savefile_model = super().get(resource_id)
-        if not savefile_model:
-            self.logger.log_error(
-                f"Failed to get {self.resource} metadata for {resource_id}"
-            )
-            return None
+        # Create the saves directory structure
+        file_path = Path(download_path)
+        os.makedirs(file_path.parent, exist_ok=True)
 
-        # Use model properties for filename and path
-        filename = savefile_model.name or f"savefile_{resource_id}"
-        relative_path = savefile_model.rel_path if savefile_model.rel_path else ""
-
-        # Handle cases where path is just "/" or starts with "/"
-        relative_path = relative_path.lstrip("/")
-
-        # Create the Downloads directory structure
-        base_dir = (
-            Path(os.path.dirname(os.path.abspath(__file__)))
-            / "Downloads"
-            / relative_path
-        )
-        os.makedirs(base_dir, exist_ok=True)
-
-        # Save the file
-        file_path = base_dir / filename
         with open(file_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
+        # Set the local file's last modified datetime to savefile_model.modified_at
+        if savefile_model.modified_at:
+            modified_time = datetime.fromisoformat(
+                savefile_model.modified_at
+            ).timestamp()
+
+            os.utime(file_path, (os.path.getatime(file_path), modified_time))
+
         self.logger.log_info(f"Downloaded {self.resource} {resource_id} to {file_path}")
+
         return savefile_model
 
     @override

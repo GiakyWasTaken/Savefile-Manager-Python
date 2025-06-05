@@ -401,7 +401,7 @@ class ControllerBase(ABC, Generic[T]):
             bool: True if the item matches the search criteria, False otherwise
         """
         for attr, value in model_json.items():
-            if value is None or "_at" in attr:
+            if value is None or value == "" or "_at" in attr:
                 continue
             if attr not in item_json or item_json[attr] != value:
                 return False
