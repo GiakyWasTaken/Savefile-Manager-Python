@@ -189,7 +189,7 @@ class ControllerBase(ABC, Generic[T]):
 
         return result
 
-    def get_all(self) -> Union[List[T], T, None]:
+    def get_all(self) -> Optional[List[T]]:
         """
         Retrieve all resources of the specified type
 
@@ -209,6 +209,9 @@ class ControllerBase(ABC, Generic[T]):
         if response.status_code == 200:
             self.logger.log_info(f"Fetched all {self.resource}s")
             result = self.convert_to_model(response.json()) if response.json() else []
+
+            if not isinstance(result, list):
+                result = [result]
         else:
             self.logger.log_error(
                 f"Error fetching all {self.resource}s: {response.status_code} - {response.text}"
@@ -217,8 +220,8 @@ class ControllerBase(ABC, Generic[T]):
         return result
 
     def search(
-        self, model: T, multiple_search: bool = False
-    ) -> Union[list[T], T, None]:
+        self, model: T, allow_multiple_results: bool = False
+    ) -> Optional[list[T]]:
         """
         Search for a resource matching the given model
 
@@ -240,7 +243,7 @@ class ControllerBase(ABC, Generic[T]):
 
         result: List[T] = []
 
-        for item in all_items if isinstance(all_items, list) else [all_items]:
+        for item in all_items:
             if self._have_same_values(model_json, self.convert_to_json(item)):
                 result.append(item)
 
@@ -249,14 +252,14 @@ class ControllerBase(ABC, Generic[T]):
                 f"Found matching {self.resource} with Id {result[0].id}"
             )
 
-            return result[0]
+            return result
 
         if len(result) > 1:
             self.logger.log_warning(
                 f"Multiple {self.resource}s found with values {model_json}"
             )
 
-            return result if multiple_search else None
+            return result if allow_multiple_results else None
 
         self.logger.log_warning(
             f"{self.resource.capitalize()} with values {model_json} not found"

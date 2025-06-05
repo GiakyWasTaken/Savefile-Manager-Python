@@ -3,7 +3,7 @@ Authentication manager module for the Savefile Manager application
 Handles user authentication, registration, and logout operations
 """
 
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 import requests
 
 from logger import Logger
@@ -21,7 +21,7 @@ class AuthManager:
     @staticmethod
     def login(
         api_url: str, email: str, password: str, ssl_cert: Union[str, bool]
-    ) -> str:
+    ) -> Optional[str]:
         """
         Authenticate the user and retrieve an access token
 
@@ -42,7 +42,7 @@ class AuthManager:
         response = requests.post(
             login_url, json=payload, headers=headers, verify=ssl_cert, timeout=10
         )
-        token = ""
+        token = None
 
         logger.log_debug(f"Login response: {response.status_code} - {response.text}")
 
@@ -94,7 +94,7 @@ class AuthManager:
     @staticmethod
     def register(
         api_url: str, name: str, email: str, password: str, ssl_cert: Union[str, bool]
-    ) -> str:
+    ) -> Optional[str]:
         """
         Register a new user and retrieve an access token
 
@@ -125,7 +125,7 @@ class AuthManager:
             verify=ssl_cert,
             timeout=10,
         )
-        token = ""
+        token = None
 
         logger.log_debug(f"Register response: {response.status_code} - {response.text}")
 

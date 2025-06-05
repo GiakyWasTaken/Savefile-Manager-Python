@@ -45,8 +45,10 @@ class SavefileController(ControllerBase[Savefile]):
         return headers
 
     @override
-    def get(self, resource_id: int, want_json: bool = True) -> Union[Savefile, None]:
-        if want_json:
+    def get(
+        self, resource_id: int, download_file: bool = False
+    ) -> Union[Savefile, None]:
+        if not download_file:
             return super().get(resource_id)
 
         # Make a request to download the file

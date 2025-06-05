@@ -148,6 +148,29 @@ class Console(Entity):
 
     saves_path: Optional[str] = None
 
+    def __hash__(self) -> int:
+        """
+        Create a hash for the console based on its id.
+
+        Returns:
+            int: Hash value for the console
+        """
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Check if two consoles are equal based on their id or name.
+
+        Args:
+            other: The other object to compare the console with
+
+        Returns:
+            bool: True if the consoles are equal, False otherwise
+        """
+        if not isinstance(other, Console):
+            return False
+        return self.id == other.id or self.name == other.name
+
 
 @dataclass
 class Savefile(Entity):
@@ -256,3 +279,30 @@ class Savefile(Entity):
         with open(self.abs_path, "wb") as file:
             file.write(content)
         return True
+
+    def __hash__(self) -> int:
+        """
+        Create a hash for the savefile based on name, rel_path and id_console.
+
+        Returns:
+            int: Hash value for the savefile
+        """
+        return hash((self.name, self.rel_path, self.id_console))
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Check if two savefiles are equal based on their id, name, rel_path, and id_console.
+
+        Args:
+            other: The other object to compare with
+
+        Returns:
+            bool: True if the savefiles are equal, False otherwise
+        """
+        if not isinstance(other, Savefile):
+            return False
+        return self.id == other.id or (
+            self.name == other.name
+            and self.rel_path == other.rel_path
+            and self.id_console == other.id_console
+        )

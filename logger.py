@@ -19,7 +19,8 @@ class LogLevel(Enum):
     INFO = 1
     WARNING = 2
     ERROR = 3
-    NONE = 4
+    SUCCESS = 4
+    NONE = 5
 
 
 class Logger:
@@ -126,6 +127,7 @@ class Logger:
                     LogLevel.INFO: colorama.Fore.WHITE,
                     LogLevel.WARNING: colorama.Fore.YELLOW,
                     LogLevel.ERROR: colorama.Fore.RED,
+                    LogLevel.SUCCESS: colorama.Fore.GREEN,
                 }
                 print(
                     color_map.get(message_level, colorama.Fore.WHITE)
@@ -138,6 +140,7 @@ class Logger:
                     LogLevel.INFO: "\033[97m",  # White
                     LogLevel.WARNING: "\033[93m",  # Yellow
                     LogLevel.ERROR: "\033[91m",  # Red
+                    LogLevel.SUCCESS: "\033[92m",  # Green
                 }
                 print(color_map.get(message_level, "\033[0m") + log_message + "\033[0m")
 
@@ -176,3 +179,12 @@ class Logger:
             message (str): Error message to log
         """
         self.log(message, LogLevel.ERROR)
+
+    def log_success(self, message: str) -> None:
+        """
+        Log a success-level message
+
+        Args:
+            message (str): Success message to log
+        """
+        self.log(message, LogLevel.SUCCESS)
