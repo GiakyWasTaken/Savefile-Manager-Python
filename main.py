@@ -7,11 +7,11 @@ import argparse
 from enum import Enum
 import os
 import re
-from typing import Union
 
 import dotenv
 from auth_manager import AuthManager
 from console_controller import ConsoleController
+from local_ssl_context import LocalSSLContext
 from logger import Logger, LogLevel
 from models import Console, Savefile
 from savefile_controller import SavefileController
@@ -123,12 +123,12 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
     return values
 
 
-def setup_env() -> tuple[str, str, str, str, Union[str, bool]]:
+def setup_env() -> tuple[list[str], list[str], str]:
     """
     Load environment variables from the .env file and return necessary configurations
 
     Returns:
-        tuple: Tuple containing dotenv path, API URL, email, password, and SSL certificate path
+        tuple: Tuple containing console names, saves paths, and API URL
     """
 
     dotenv_path = dotenv.find_dotenv()
@@ -137,20 +137,22 @@ def setup_env() -> tuple[str, str, str, str, Union[str, bool]]:
     api_url = os.getenv("API_URL", "").rstrip("/")
     email = os.getenv("EMAIL")
     password = os.getenv("PASSWORD")
-    ssl_cert = os.path.join(os.path.dirname(__file__), os.getenv("SSL_CERT_NAME", ""))
-
-    if not ssl_cert:
-        logger.log_warning("SSL certificate not provided, skipping SSL verification")
-        ssl_cert = False
 
     if not email or not password:
         raise ValueError("EMAIL and PASSWORD must be set in the .env file")
 
-    return dotenv_path, api_url, email, password, ssl_cert
+    console_names, saves_paths = [
+        extract_bash_array(dotenv_path, name)
+        for name in ["CONSOLE_NAMES", "SAVES_PATHS"]
+    ]
+
+    LocalSSLContext.set_api_url(api_url)
+
+    return console_names, saves_paths, api_url
 
 
 def get_controllers(
-    api_url: str, token: str, ssl_cert: Union[str, bool]
+    api_url: str, token: str
 ) -> tuple[ConsoleController, SavefileController]:
     """
     Initialize and return ConsoleController and SavefileController instances
@@ -158,19 +160,14 @@ def get_controllers(
     Args:
         api_url (str): API URL for the controllers
         token (str): Authentication token for the API
-        ssl_cert (Union[str, bool]): SSL certificate path or False to skip verification
 
     Returns:
         tuple: Tuple containing ConsoleController and SavefileController instances
     """
 
-    console_controller = ConsoleController(
-        api_url=api_url, api_token=token, ssl_cert=ssl_cert
-    )
+    console_controller = ConsoleController(api_url=api_url, api_token=token)
 
-    savefile_controller = SavefileController(
-        api_url=api_url, api_token=token, ssl_cert=ssl_cert
-    )
+    savefile_controller = SavefileController(api_url=api_url, api_token=token)
 
     return console_controller, savefile_controller
 
@@ -681,14 +678,14 @@ def main() -> None:
     """
     Main function to run the Savefile Manager application
     It sets up the environment, authenticates the user, retrieves controllers,
-    and crawls savefiles based on the provided parameters.
+    and crawls savefiles based on the provided parameters
     """
 
-    dotenv_path, api_url, email, password, ssl_cert = setup_env()
+    console_names, saves_paths, api_url = setup_env()
 
     token = AuthManager.login(
-        api_url, email, password, ssl_cert
-    ) or AuthManager.register(api_url, "giaky", email, password, ssl_cert)
+        api_url, os.getenv("EMAIL") or "", os.getenv("PASSWORD") or ""
+    )
 
     if not token:
         logger.log_error("Failed to authenticate or register")
@@ -696,12 +693,7 @@ def main() -> None:
 
     logger.log_info("Login successful")
 
-    console_controller, savefile_controller = get_controllers(api_url, token, ssl_cert)
-
-    console_names, saves_paths = [
-        extract_bash_array(dotenv_path, name)
-        for name in ["CONSOLE_NAMES", "SAVES_PATHS"]
-    ]
+    console_controller, savefile_controller = get_controllers(api_url, token)
 
     if len(console_names) != len(saves_paths):
         logger.log_error(
@@ -720,7 +712,7 @@ def main() -> None:
         crawling_modes,
     )
 
-    AuthManager.logout(api_url, token, ssl_cert)
+    AuthManager.logout(api_url, token)
 
     print_results(results)
 

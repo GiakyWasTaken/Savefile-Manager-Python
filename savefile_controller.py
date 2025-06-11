@@ -8,9 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union, override
 
-import requests
-
 from controller_base import ControllerBase
+from local_ssl_context import LocalSSLContext
 from models import Savefile
 
 
@@ -20,9 +19,11 @@ class SavefileController(ControllerBase[Savefile]):
     """
 
     def __init__(
-        self, api_url: str, api_token: str, ssl_cert: Union[str, bool]
+        self,
+        api_url: str,
+        api_token: str,
     ) -> None:
-        super().__init__(api_url, api_token, ssl_cert, model_class=Savefile)
+        super().__init__(api_url, api_token, model_class=Savefile)
 
     @override
     def field_mapping(self) -> Dict[str, Any]:
@@ -58,8 +59,8 @@ class SavefileController(ControllerBase[Savefile]):
         url = f"{self.api_url}/{self.resource}/{resource_id}"
         headers = self.get_headers(accept="application/octet-stream")
 
-        response = requests.get(
-            url, headers=headers, verify=self.ssl_cert, stream=True, timeout=10
+        response = LocalSSLContext.get_session().get(
+            url, headers=headers, stream=True, timeout=10
         )
 
         self.logger.log_debug(
@@ -99,12 +100,11 @@ class SavefileController(ControllerBase[Savefile]):
 
         data = super().convert_to_json(model)
 
-        response = requests.post(
+        response = LocalSSLContext.get_session().post(
             url,
             data=data,
             files={"savefile": model.savefile} if model.savefile else None,
             headers=headers,
-            verify=self.ssl_cert,
             timeout=10,
         )
         result = None
@@ -138,12 +138,11 @@ class SavefileController(ControllerBase[Savefile]):
         # PHP compatibility for PUT requests with multipart/form-data
         data["_method"] = "PUT"
 
-        response = requests.post(
+        response = LocalSSLContext.get_session().post(
             url,
             data=data,
             files={"savefile": model.savefile} if model.savefile else None,
             headers=headers,
-            verify=self.ssl_cert,
             timeout=10,
         )
         result = None

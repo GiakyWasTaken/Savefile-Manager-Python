@@ -3,9 +3,9 @@ Authentication manager module for the Savefile Manager application
 Handles user authentication, registration, and logout operations
 """
 
-from typing import Dict, Optional, Union
-import requests
+from typing import Dict, Optional
 
+from local_ssl_context import LocalSSLContext
 from logger import Logger
 
 
@@ -19,9 +19,7 @@ class AuthManager:
         return {"Accept": "application/json", "Content-Type": "application/json"}
 
     @staticmethod
-    def login(
-        api_url: str, email: str, password: str, ssl_cert: Union[str, bool]
-    ) -> Optional[str]:
+    def login(api_url: str, email: str, password: str) -> Optional[str]:
         """
         Authenticate the user and retrieve an access token
 
@@ -29,7 +27,6 @@ class AuthManager:
             api_url (str): API base URL
             email (str): User's email address
             password (str): User's password
-            ssl_cert (Union[str, False]): SSL certificate path or False to disable verification
 
         Returns:
             str: Access token if login is successful, empty string otherwise
@@ -39,8 +36,8 @@ class AuthManager:
         payload: Dict[str, str] = {"email": email, "password": password}
         headers = AuthManager.__get_headers()
 
-        response = requests.post(
-            login_url, json=payload, headers=headers, verify=ssl_cert, timeout=10
+        response = LocalSSLContext.get_session().post(
+            login_url, json=payload, headers=headers, timeout=10
         )
         token = None
 
@@ -55,14 +52,13 @@ class AuthManager:
         return token
 
     @staticmethod
-    def logout(api_url: str, token: str, ssl_cert: Union[str, bool]) -> bool:
+    def logout(api_url: str, token: str) -> bool:
         """
         Log out the user by invalidating the access token
 
         Args:
             api_url (str): API base URL
             token (str): Access token to be invalidated
-            ssl_cert (Union[str, False]): SSL certificate path or False to disable verification
 
         Returns:
             bool: True if logout is successful, False otherwise
@@ -76,8 +72,8 @@ class AuthManager:
         headers = AuthManager.__get_headers()
         headers["Authorization"] = f"Bearer {token}"
 
-        response = requests.get(
-            logout_url, headers=headers, verify=ssl_cert, timeout=10
+        response = LocalSSLContext.get_session().get(
+            logout_url, headers=headers, timeout=10
         )
         result = False
 
@@ -92,9 +88,7 @@ class AuthManager:
         return result
 
     @staticmethod
-    def register(
-        api_url: str, name: str, email: str, password: str, ssl_cert: Union[str, bool]
-    ) -> Optional[str]:
+    def register(api_url: str, name: str, email: str, password: str) -> Optional[str]:
         """
         Register a new user and retrieve an access token
 
@@ -103,7 +97,6 @@ class AuthManager:
             name (str): User's name
             email (str): User's email address
             password (str): User's password
-            ssl_cert (Union[str, False]): SSL certificate path or False to disable verification
 
         Returns:
             str: Access token if registration is successful, empty string otherwise
@@ -118,11 +111,10 @@ class AuthManager:
         }
         headers = AuthManager.__get_headers()
 
-        response = requests.post(
+        response = LocalSSLContext.get_session().post(
             register_url,
             json=payload,
             headers=headers,
-            verify=ssl_cert,
             timeout=10,
         )
         token = None

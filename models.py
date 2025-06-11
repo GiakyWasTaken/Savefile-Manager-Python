@@ -76,7 +76,7 @@ class Entity:
 
     def to_json(self) -> Dict[str, object]:
         """
-        Convert the entity to a JSON-serializable dictionary, including properties.
+        Convert the entity to a JSON-serializable dictionary, including properties
 
         Returns:
             Dict: JSON representation of the entity
@@ -88,7 +88,7 @@ class Entity:
 
     def _get_instance_vars(self) -> Dict[str, object]:
         """
-        Helper to get instance variables (excluding private ones) for JSON serialization.
+        Helper to get instance variables (excluding private ones) for JSON serialization
         """
         instance_vars: Dict[str, object] = {}
         for key, value in self.__dict__.items():
@@ -100,7 +100,7 @@ class Entity:
 
     def _get_properties(self, existing: Dict[str, object]) -> Dict[str, object]:
         """
-        Helper to get property values for JSON serialization, skipping those already in existing.
+        Helper to get property values for JSON serialization, skipping those already in existing
         """
         props: Dict[str, object] = {}
         for attr in dir(self.__class__):
@@ -150,7 +150,7 @@ class Console(Entity):
 
     def __hash__(self) -> int:
         """
-        Create a hash for the console based on its id.
+        Create a hash for the console based on its id
 
         Returns:
             int: Hash value for the console
@@ -159,7 +159,7 @@ class Console(Entity):
 
     def __eq__(self, other: object) -> bool:
         """
-        Check if two consoles are equal based on their id or name.
+        Check if two consoles are equal based on their id or name
 
         Args:
             other: The other object to compare the console with
@@ -252,7 +252,7 @@ class Savefile(Entity):
     @property
     def savefile(self) -> Optional[BufferedReader]:
         """
-        Get the savefile content as a file-like object.
+        Get the savefile content as a file-like object
 
         Returns:
             BufferedReader: File-like object containing the savefile content
@@ -265,13 +265,13 @@ class Savefile(Entity):
     @savefile.setter
     def savefile(self, content: bytes) -> bool:
         """
-        Write content to the savefile in the file system.
+        Write content to the savefile in the file system
 
         Args:
-            content (bytes): The content to write to the savefile.
+            content (bytes): The content to write to the savefile
 
         Returns:
-            bool: True if the savefile was successfully written, False otherwise.
+            bool: True if the savefile was successfully written, False otherwise
         """
         if not self.abs_path or not os.path.exists(self.abs_path):
             return False
@@ -282,7 +282,7 @@ class Savefile(Entity):
 
     def __hash__(self) -> int:
         """
-        Create a hash for the savefile based on name, rel_path and id_console.
+        Create a hash for the savefile based on name, rel_path and id_console
 
         Returns:
             int: Hash value for the savefile
@@ -291,7 +291,7 @@ class Savefile(Entity):
 
     def __eq__(self, other: object) -> bool:
         """
-        Check if two savefiles are equal based on their id, name, rel_path, and id_console.
+        Check if two savefiles are equal based on their id, name, rel_path, and id_console
 
         Args:
             other: The other object to compare with

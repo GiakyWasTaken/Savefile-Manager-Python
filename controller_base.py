@@ -5,7 +5,7 @@ Provides generic methods for CRUD operations on resources
 
 from abc import ABC
 from typing import Any, Dict, List, Optional, Generic, TypeVar, Type, Union
-import requests
+from local_ssl_context import LocalSSLContext
 from logger import Logger
 from models import Entity
 
@@ -22,12 +22,10 @@ class ControllerBase(ABC, Generic[T]):
         self,
         api_url: str,
         api_token: str,
-        ssl_cert: Union[str, bool],
         model_class: Type[T],
     ) -> None:
         self.api_url = api_url
         self.api_token = api_token
-        self.ssl_cert = ssl_cert
         self.model_class = model_class
         self.resource = (
             model_class.__name__.lower()
@@ -166,7 +164,7 @@ class ControllerBase(ABC, Generic[T]):
         url = f"{self.api_url}/{self.resource}/{resource_id}"
         headers = self.get_headers()
 
-        response = requests.get(url, headers=headers, verify=self.ssl_cert, timeout=10)
+        response = LocalSSLContext.get_session().get(url, headers=headers, timeout=10)
         result = None
 
         self.logger.log_debug(
@@ -199,7 +197,7 @@ class ControllerBase(ABC, Generic[T]):
         url = f"{self.api_url}/{self.resource}"
         headers = self.get_headers()
 
-        response = requests.get(url, headers=headers, verify=self.ssl_cert, timeout=10)
+        response = LocalSSLContext.get_session().get(url, headers=headers, timeout=10)
         result = None
 
         self.logger.log_debug(
@@ -282,8 +280,8 @@ class ControllerBase(ABC, Generic[T]):
 
         data = self.convert_to_json(model)
 
-        response = requests.post(
-            url, json=data, headers=headers, verify=self.ssl_cert, timeout=10
+        response = LocalSSLContext.get_session().post(
+            url, json=data, headers=headers, timeout=10
         )
         result = None
 
@@ -321,8 +319,8 @@ class ControllerBase(ABC, Generic[T]):
 
         data = self.convert_to_json(model)
 
-        response = requests.put(
-            url, json=data, headers=headers, verify=self.ssl_cert, timeout=10
+        response = LocalSSLContext.get_session().put(
+            url, json=data, headers=headers, timeout=10
         )
         result = None
 
@@ -363,8 +361,8 @@ class ControllerBase(ABC, Generic[T]):
         url = f"{self.api_url}/{self.resource}/{resource_id}"
         headers = self.get_headers()
 
-        response = requests.delete(
-            url, headers=headers, verify=self.ssl_cert, timeout=10
+        response = LocalSSLContext.get_session().delete(
+            url, headers=headers, timeout=10
         )
         result = False
 
