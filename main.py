@@ -82,6 +82,9 @@ class ProcessingResult(Enum):
     FAILED_DOWNLOAD = 8
 
 
+parser = argparse.ArgumentParser(description="Savefile Manager Scripts")
+
+
 def get_logger_level() -> Logger:
     """
     Get the logger level based on command line arguments.
@@ -90,7 +93,6 @@ def get_logger_level() -> Logger:
         Logger: Logger instance with the specified log level.
     """
 
-    parser = argparse.ArgumentParser(description="Savefile Manager Scripts")
     parser.add_argument(
         "-v",
         "--verbose",
@@ -107,7 +109,7 @@ def get_logger_level() -> Logger:
     }
 
     log_level = verbosity_map.get(args.verbose, LogLevel.INFO)
-    return Logger(file_log_level=log_level, print_log_level=log_level)
+    return Logger(print_log_level=log_level)
 
 
 logger = get_logger_level()
@@ -152,12 +154,12 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
     return values
 
 
-def setup_env() -> tuple[list[str], list[str], str]:
+def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, CrawlingMode]]:
     """
     Load environment variables from the .env file and return necessary configurations
 
     Returns:
-        tuple: Tuple containing console names, saves paths, and API URL
+        tuple: Tuple containing console names, saves paths, API URL, and crawling modes
     """
 
     dotenv_path = dotenv.find_dotenv()
@@ -177,7 +179,9 @@ def setup_env() -> tuple[list[str], list[str], str]:
 
     LocalSSLContext.set_api_url(api_url)
 
-    return console_names, saves_paths, api_url
+    crawling_modes = get_crawling_downloading_mode()
+
+    return console_names, saves_paths, api_url, crawling_modes
 
 
 def get_controllers(
@@ -208,8 +212,6 @@ def get_crawling_downloading_mode() -> tuple[CrawlingMode, CrawlingMode]:
     Returns:
         tuple[CrawlingMode, CrawlingMode]: Tuple containing crawling mode and downloading mode
     """
-
-    parser = argparse.ArgumentParser(description="Savefile Manager Scripts")
 
     parser.add_argument(
         "-c",
@@ -710,7 +712,7 @@ def main() -> None:
     and crawls savefiles based on the provided parameters
     """
 
-    console_names, saves_paths, api_url = setup_env()
+    console_names, saves_paths, api_url, crawling_modes = setup_env()
 
     token = AuthManager.login(
         api_url, os.getenv("EMAIL") or "", os.getenv("PASSWORD") or ""
@@ -730,8 +732,6 @@ def main() -> None:
         )
 
         return
-
-    crawling_modes = get_crawling_downloading_mode()
 
     results = crawl_savefiles(
         console_names,
