@@ -16,8 +16,6 @@ from logger import Logger, LogLevel
 from models import Console, Savefile
 from savefile_controller import SavefileController
 
-logger = Logger(file_log_level=LogLevel.NONE, print_log_level=LogLevel.DEBUG)
-
 
 class CrawlingMode(Enum):
     """
@@ -82,6 +80,37 @@ class ProcessingResult(Enum):
     FAILED_CREATION = 6
     FAILED_UPLOAD = 7
     FAILED_DOWNLOAD = 8
+
+
+def get_logger_level() -> Logger:
+    """
+    Get the logger level based on command line arguments.
+
+    Returns:
+        Logger: Logger instance with the specified log level.
+    """
+
+    parser = argparse.ArgumentParser(description="Savefile Manager Scripts")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity level (-v for INFO, -vv for DEBUG)",
+    )
+    args, _ = parser.parse_known_args()
+
+    verbosity_map = {
+        0: LogLevel.WARNING,
+        1: LogLevel.INFO,
+        2: LogLevel.DEBUG,
+    }
+
+    log_level = verbosity_map.get(args.verbose, LogLevel.INFO)
+    return Logger(file_log_level=log_level, print_log_level=log_level)
+
+
+logger = get_logger_level()
 
 
 def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
