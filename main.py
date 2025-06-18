@@ -242,7 +242,7 @@ def get_crawling_downloading_mode() -> tuple[CrawlingMode, CrawlingMode]:
     downloading_mode = CrawlingMode[shortcut_map[args.download].upper()]
 
     if crawl_mode == CrawlingMode.NONE and downloading_mode == CrawlingMode.NONE:
-        logger.log_warning(
+        logger.log_info(
             "Both crawling and downloading modes aren't set. "
             "Defaulting to AUTO for crawling mode and downloading mode."
         )

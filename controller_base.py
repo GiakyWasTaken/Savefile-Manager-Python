@@ -253,13 +253,13 @@ class ControllerBase(ABC, Generic[T]):
             return result
 
         if len(result) > 1:
-            self.logger.log_warning(
+            self.logger.log_info(
                 f"Multiple {self.resource}s found with values {model_json}"
             )
 
             return result if allow_multiple_results else None
 
-        self.logger.log_warning(
+        self.logger.log_info(
             f"{self.resource.capitalize()} with values {model_json} not found"
         )
 
