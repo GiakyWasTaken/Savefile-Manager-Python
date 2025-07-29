@@ -9,6 +9,7 @@ import os
 import re
 
 import dotenv
+from tqdm import tqdm
 from auth_manager import AuthManager
 from console_controller import ConsoleController
 from local_ssl_context import LocalSSLContext
@@ -113,6 +114,22 @@ def get_logger_level() -> Logger:
 
 
 logger = get_logger_level()
+
+
+def truncate_description(text: str, max_length: int = 50) -> str:
+    """
+    Truncate text to a maximum length and add ellipsis if needed
+
+    Args:
+        text (str): Text to truncate
+        max_length (int): Maximum length of the text
+
+    Returns:
+        str: Truncated text with ellipsis if needed
+    """
+    if len(text) <= max_length:
+        return text.ljust(max_length)
+    return text[: max_length - 3] + "..."
 
 
 def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
@@ -550,9 +567,31 @@ def crawl_savefiles(
 
     results: dict[Console, list[int]] = {}
 
+    # Create progress bar for consoles
+    console_pbar = tqdm(
+        total=len(local_consoles),
+        desc=truncate_description("Processing consoles"),
+        unit="console",
+        leave=True,
+        dynamic_ncols=True,
+        file=None,
+        miniters=1,
+        mininterval=0.1,
+        bar_format=(
+            "{l_bar}{bar}| {n_fmt:>3}/{total_fmt:<3} "
+            "[{elapsed:>5}<{remaining:>5}, {rate_fmt:>12}]"
+        ),
+        smoothing=0.1,
+    )
+
     for index, console in enumerate(local_consoles):
+        console_pbar.set_description(
+            truncate_description(f"Processing console: {console.name}")
+        )
+
         if console.id is None:
             results[console] = [1]
+            console_pbar.update(1)
             continue
 
         logger.log_info(f'Processing console "{console.name}" with ID {console.id}')
@@ -562,6 +601,7 @@ def crawl_savefiles(
         if not os.path.exists(console.saves_path):
             logger.log_warning(f"Non existing path at {console.saves_path}")
             results[console] = [1]
+            console_pbar.update(1)
             continue
 
         logger.log_info(
@@ -590,7 +630,27 @@ def crawl_savefiles(
 
         console_result: list[int] = [0] * 9
 
+        # Create progress bar for savefiles within this console
+        savefile_pbar = tqdm(
+            total=len(available_savefiles),
+            desc=truncate_description(f"Processing savefiles for {console.name}"),
+            unit="file",
+            leave=False,
+            dynamic_ncols=True,
+            file=None,
+            miniters=1,
+            mininterval=0.1,
+            bar_format=(
+                "{l_bar}{bar}| {n_fmt:>3}/{total_fmt:<3} "
+                "[{elapsed:>5}<{remaining:>5}, {rate_fmt:>12}]"
+            ),
+            smoothing=0.1,
+        )
+
         for savefile, availability in available_savefiles.items():
+            savefile_pbar.set_description(
+                truncate_description(f"Processing: {savefile.name}")
+            )
 
             # Process the savefile
             processing_result = process_savefile(
@@ -598,9 +658,13 @@ def crawl_savefiles(
             )
 
             console_result[processing_result.value] += 1
+            savefile_pbar.update(1)
 
+        savefile_pbar.close()
         results[console] = console_result
+        console_pbar.update(1)
 
+    console_pbar.close()
     return results
 
 

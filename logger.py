@@ -8,6 +8,7 @@ import datetime
 from enum import Enum
 from typing import Optional
 import colorama
+from tqdm import tqdm
 
 
 class LogLevel(Enum):
@@ -115,7 +116,7 @@ class Logger:
             with open(self.log_file, "a", encoding="utf-8") as log_file:
                 log_file.write(log_message + "\n")
 
-        # Print to console
+        # Print to console (using tqdm.write to avoid interfering with progress bars)
         if (
             Logger._print_log_level is not None
             and message_level.value >= Logger._print_log_level.value
@@ -129,11 +130,12 @@ class Logger:
                     LogLevel.ERROR: colorama.Fore.RED,
                     LogLevel.SUCCESS: colorama.Fore.GREEN,
                 }
-                print(
+                colored_message = (
                     color_map.get(message_level, colorama.Fore.WHITE)
                     + log_message
                     + colorama.Style.RESET_ALL
                 )
+                tqdm.write(colored_message)
             else:
                 color_map = {
                     LogLevel.DEBUG: "\033[90m",  # Gray
@@ -142,7 +144,10 @@ class Logger:
                     LogLevel.ERROR: "\033[91m",  # Red
                     LogLevel.SUCCESS: "\033[92m",  # Green
                 }
-                print(color_map.get(message_level, "\033[0m") + log_message + "\033[0m")
+                colored_message = (
+                    color_map.get(message_level, "\033[0m") + log_message + "\033[0m"
+                )
+                tqdm.write(colored_message)
 
     def log_debug(self, message: str) -> None:
         """
