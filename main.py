@@ -7,6 +7,8 @@ import argparse
 from enum import Enum
 import os
 import re
+import shutil
+from typing import Optional, Any, Tuple
 
 import dotenv
 from tqdm import tqdm
@@ -127,9 +129,121 @@ def truncate_description(text: str, max_length: int = 50) -> str:
     Returns:
         str: Truncated text with ellipsis if needed
     """
+
     if len(text) <= max_length:
         return text.ljust(max_length)
     return text[: max_length - 3] + "..."
+
+
+def fit_text_to_width(text: str, width: int) -> str:
+    """Fit text to a given width. If too long, add ellipsis. If width <= 0, return empty
+
+    Args:
+        text (str): Text to fit
+        width (int): Width to fit the text to
+
+    Returns:
+        str: Fitted text
+    """
+
+    if width <= 0:
+        return ""
+    if len(text) <= width:
+        return text + " " * (width - len(text))
+    if width <= 1:
+        return "…" * width
+    return text[: width - 1] + "…"
+
+
+def set_sized_description(pbar: Any, text: str) -> None:
+    """Set the description of a progress bar to a truncated version of the text
+
+    Args:
+        pbar (Any): The progress bar to update
+        text (str): The text to set as the description
+    """
+
+    extra = getattr(pbar, "_two_line_extra_width", None)
+
+    if extra is None:
+        pbar.set_description(truncate_description(text))
+        return
+
+    term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    max_len = max(0, term_cols - int(extra))
+
+    pbar.set_description(fit_text_to_width(text, max_len))
+
+
+def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[Any]]:
+    """Create progress bars for console or savefile processing
+
+    Args:
+        total (int): The total number of items to process
+        is_console (bool): Whether the progress bars are for console or savefile processing
+
+    Returns:
+        Tuple[Any, Optional[Any]]: The primary and secondary progress bars
+    """
+
+    stats = "{n_fmt:>3}/{total_fmt:>3}[{elapsed:>5}<{remaining:>5},{rate_fmt:>15}]"
+
+    common_kwargs: dict[str, Any] = {
+        "total": total,
+        "leave": True,
+        "dynamic_ncols": True,
+        "file": None,
+        "miniters": 1,
+        "mininterval": 0.1,
+        "smoothing": 0.1,
+    }
+
+    term_cols = max(50, shutil.get_terminal_size(fallback=(80, 24)).columns)
+
+    if term_cols > 99:
+        unit = "console" if is_console else "savefile"
+        desc = truncate_description(
+            "Processing " + ("consoles" if is_console else "savefiles")
+        )
+
+        bar_format = "{l_bar}{bar}| " + stats
+
+        progress_bar = tqdm(
+            bar_format=bar_format, desc=desc, unit=unit, **common_kwargs
+        )
+        pbar_2nd = None
+    else:
+        unit = "con" if is_console else "sav"
+
+        stats = stats.replace("{rate_fmt:>15}", "{rate_fmt:>10}")
+
+        primary_format = "{desc}|" + stats
+
+        # Precompute the real width used by the stats segment to reserve space for desc
+        stats_example = stats.format(
+            n_fmt="000",
+            total_fmt="000",
+            elapsed="00:00",
+            remaining="00:00",
+            rate_fmt="".ljust(10),
+        )
+
+        # Reserve total extra width (separator + stats) so desc can take remaining columns
+        extra_width = len(": |") + len(stats_example)
+
+        progress_bar = tqdm(bar_format=primary_format, unit=unit, **common_kwargs)
+
+        # Mark this bar as the two-line top bar and store reserved width
+        setattr(progress_bar, "_two_line_extra_width", extra_width)
+
+        # Ensure initial desc uses maximum available width
+        set_sized_description(progress_bar, "")
+
+        percentage_format = "{percentage:3.0f}% |{bar}"
+
+        pbar_2nd = tqdm(bar_format=percentage_format, unit=unit, **common_kwargs)
+
+    return progress_bar, pbar_2nd
 
 
 def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
@@ -468,6 +582,7 @@ def process_savefile(
     Returns:
         str: Result of the savefile processing
     """
+
     if availability == SavefileAvailability.LOCAL:
         return handle_creating_savefile(
             savefile, savefile_controller, crawling_modes[0]
@@ -524,7 +639,7 @@ def retrieve_local_remote_savefiles(
 
             savefile = Savefile(
                 name=file,
-                rel_path="/" if rel_dir == "." else f"{rel_dir}/",
+                rel_path="/" if rel_dir == "." else f"{rel_dir.replace(os.sep, '/')}/",
             )
             savefile.console = console
 
@@ -536,6 +651,95 @@ def retrieve_local_remote_savefiles(
             )
 
     return available_savefiles
+
+
+def update_progress_bars(
+    primary_bar: Any, secondary_bar: Optional[Any], do_close: bool = False
+) -> None:
+    """Update both primary and secondary progress bars
+
+    Args:
+        primary_bar (Any): The primary progress bar to update
+        secondary_bar (Optional[Any]): The secondary progress bar to update
+        do_close (bool, optional): Whether to close the progress bars. Defaults to False.
+    """
+
+    if do_close:
+        primary_bar.close()
+        if secondary_bar is not None:
+            secondary_bar.close()
+    else:
+        primary_bar.update(1)
+        if secondary_bar is not None:
+            secondary_bar.update(1)
+
+
+def log_savefile_stats(
+    console_name: str, available_savefiles: dict[Savefile, SavefileAvailability]
+) -> None:
+    """Log statistics about the available savefiles
+
+    Args:
+        console_name (str): The name of the console
+        available_savefiles (dict[Savefile, SavefileAvailability]): The available savefiles
+    """
+
+    logger.log_info(
+        f"Found {len(available_savefiles)} savefiles for console '{console_name}'"
+    )
+    logger.log_info(
+        f"Remote only savefiles: "
+        f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.REMOTE)}"
+    )
+    logger.log_info(
+        f"Local only savefiles: "
+        f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.LOCAL)}"
+    )
+    logger.log_info(
+        f"Both remote and local savefiles: "
+        f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.BOTH)}"
+    )
+
+
+def process_console_savefiles(
+    console: Console,
+    savefile_controller: SavefileController,
+    crawling_modes: tuple[CrawlingMode, CrawlingMode],
+) -> list[int]:
+    """Process all savefiles for a single console
+
+    Args:
+        console (Console): The console to process savefiles for
+        savefile_controller (SavefileController): Controller for savefile operations
+        crawling_modes (tuple[CrawlingMode, CrawlingMode]): The crawling modes to use
+
+    Returns:
+        list[int]: The results of processing savefiles
+    """
+
+    available_savefiles = retrieve_local_remote_savefiles(console, savefile_controller)
+    log_savefile_stats(console.name, available_savefiles)
+
+    console_result = [0] * 9
+    savefile_pbar, savefile_2nd_pbar = create_progress_bars(
+        len(available_savefiles), is_console=False
+    )
+
+    for savefile, availability in available_savefiles.items():
+        if getattr(savefile_pbar, "_two_line_extra_width", None) is not None:
+            set_sized_description(savefile_pbar, f"{savefile.name}")
+        else:
+            set_sized_description(savefile_pbar, f"Processing: {savefile.name}")
+
+        processing_result = process_savefile(
+            savefile, availability, savefile_controller, crawling_modes
+        )
+
+        console_result[processing_result.value] += 1
+        update_progress_bars(savefile_pbar, savefile_2nd_pbar)
+
+    update_progress_bars(savefile_pbar, savefile_2nd_pbar, do_close=True)
+    return console_result
 
 
 def crawl_savefiles(
@@ -556,115 +760,49 @@ def crawl_savefiles(
         crawling_modes (tuple[CrawlingMode, CrawlingMode]): Savefile crawling and downloading modes
 
     Returns:
-        tuple: Counts of uploaded, skipped, ignored, downloaded savefiles, and errors
+        dict[Console, list[int]]: Dictionary mapping consoles to their processing results
     """
 
     create_new_consoles = crawling_modes[0].value >= CrawlingMode.NEW.value
-
     local_consoles = retrieve_local_consoles(
         console_names, console_controller, create_new_consoles
     )
-
     results: dict[Console, list[int]] = {}
 
-    # Create progress bar for consoles
-    console_pbar = tqdm(
-        total=len(local_consoles),
-        desc=truncate_description("Processing consoles"),
-        unit="console",
-        leave=True,
-        dynamic_ncols=True,
-        file=None,
-        miniters=1,
-        mininterval=0.1,
-        bar_format=(
-            "{l_bar}{bar}| {n_fmt:>3}/{total_fmt:<3} "
-            "[{elapsed:>5}<{remaining:>5}, {rate_fmt:>12}]"
-        ),
-        smoothing=0.1,
+    console_pbar, console_2nd_pbar = create_progress_bars(
+        len(local_consoles), is_console=True
     )
 
     for index, console in enumerate(local_consoles):
-        console_pbar.set_description(
-            truncate_description(f"Processing console: {console.name}")
-        )
+        if getattr(console_pbar, "_two_line_extra_width", None) is not None:
+            set_sized_description(console_pbar, f"{console.name}")
+        else:
+            set_sized_description(console_pbar, f"Processing: {console.name}")
 
         if console.id is None:
             results[console] = [1]
-            console_pbar.update(1)
+            update_progress_bars(console_pbar, console_2nd_pbar)
             continue
 
         logger.log_info(f'Processing console "{console.name}" with ID {console.id}')
-
         console.saves_path = saves_paths[index]
 
         if not os.path.exists(console.saves_path):
             logger.log_warning(f"Non existing path at {console.saves_path}")
             results[console] = [1]
-            console_pbar.update(1)
+            update_progress_bars(console_pbar, console_2nd_pbar)
             continue
 
         logger.log_info(
             f"Crawling '{console.name}' saves inside '{console.saves_path}'"
         )
-
-        available_savefiles = retrieve_local_remote_savefiles(
-            console, savefile_controller
+        results[console] = process_console_savefiles(
+            console, savefile_controller, crawling_modes
         )
+        update_progress_bars(console_pbar, console_2nd_pbar)
 
-        logger.log_info(
-            f"Found {len(available_savefiles)} savefiles for console '{console.name}'"
-        )
-        logger.log_info(
-            f"Remote only savefiles: "
-            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.REMOTE)}"
-        )
-        logger.log_info(
-            f"Local only savefiles: "
-            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.LOCAL)}"
-        )
-        logger.log_info(
-            f"Both remote and local savefiles: "
-            f"{sum(1 for v in available_savefiles.values() if v == SavefileAvailability.BOTH)}"
-        )
+    update_progress_bars(console_pbar, console_2nd_pbar, do_close=True)
 
-        console_result: list[int] = [0] * 9
-
-        # Create progress bar for savefiles within this console
-        savefile_pbar = tqdm(
-            total=len(available_savefiles),
-            desc=truncate_description(f"Processing savefiles for {console.name}"),
-            unit="file",
-            leave=False,
-            dynamic_ncols=True,
-            file=None,
-            miniters=1,
-            mininterval=0.1,
-            bar_format=(
-                "{l_bar}{bar}| {n_fmt:>3}/{total_fmt:<3} "
-                "[{elapsed:>5}<{remaining:>5}, {rate_fmt:>12}]"
-            ),
-            smoothing=0.1,
-        )
-
-        for savefile, availability in available_savefiles.items():
-            savefile_pbar.set_description(
-                truncate_description(f"Processing: {savefile.name}")
-            )
-
-            # Process the savefile
-            processing_result = process_savefile(
-                savefile, availability, savefile_controller, crawling_modes
-            )
-
-            console_result[processing_result.value] += 1
-            savefile_pbar.update(1)
-
-        savefile_pbar.close()
-        results[console] = console_result
-        console_pbar.update(1)
-
-    console_pbar.close()
     return results
 
 
