@@ -202,7 +202,7 @@ def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[An
 
     common_kwargs: dict[str, Any] = {
         "total": total,
-        "leave": True,
+        "leave": is_console,
         "dynamic_ncols": True,
         "file": None,
         "miniters": 1,
@@ -802,6 +802,8 @@ def crawl_savefiles(
             console, savefile_controller, crawling_modes
         )
         update_progress_bars(console_pbar, console_2nd_pbar)
+
+    set_sized_description(console_pbar, "All Console Done")
 
     update_progress_bars(console_pbar, console_2nd_pbar, do_close=True)
 
