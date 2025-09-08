@@ -118,61 +118,73 @@ def get_logger_level() -> Logger:
 logger = get_logger_level()
 
 
-def truncate_description(text: str, max_length: int = 50) -> str:
-    """
-    Truncate text to a maximum length and add ellipsis if needed
+def fit_text_to_width(width: int, name: str, path: str = "") -> str:
+    """Fit the given text to the specified width, truncating or padding as necessary
 
     Args:
-        text (str): Text to truncate
-        max_length (int): Maximum length of the text
+        width (int): The width to fit the text within
+        name (str): The name to fit
+        path (str): The relative path to include in the fitting
 
     Returns:
-        str: Truncated text with ellipsis if needed
+        str: The fitted text
     """
 
-    if len(text) <= max_length:
-        return text.ljust(max_length)
-    return text[: max_length - 3] + "..."
+    # If full path + name fits exactly or with padding, return it
+    full = f"{path}{name}"
+    if len(full) <= width:
+        pad = width - len(full)
+        return full + " " * pad
+
+    # Collapse path first: "/" stays "/", anything else becomes "…/"
+    collapsed = "/" if path == "/" else "…/"
+
+    # Try collapsed path + full name
+    if collapsed and len(collapsed) + len(name) <= width:
+        out = collapsed + name
+        needed = max(0, width - len(out))
+        res = path[:needed] + out
+        if len(res) < width:
+            res += " " * (width - len(res))
+        return res
+
+    # Need to truncate the name as well
+    avail_for_name = max(0, width - len(collapsed))
+
+    if avail_for_name <= 1:
+        return "…"[:avail_for_name] + "/…"[-width:] if width > 0 else ""
+
+    # Truncate filename on the right
+    if len(name) > avail_for_name:
+        truncated = name[: avail_for_name - 1] + "…"
+    else:
+        truncated = name
+
+    out = collapsed + truncated
+    if len(out) < width:
+        out += " " * (width - len(out))
+    return out
 
 
-def fit_text_to_width(text: str, width: int) -> str:
-    """Fit text to a given width. If too long, add ellipsis. If width <= 0, return empty
-
-    Args:
-        text (str): Text to fit
-        width (int): Width to fit the text to
-
-    Returns:
-        str: Fitted text
-    """
-
-    if width <= 0:
-        return ""
-    if len(text) <= width:
-        return text + " " * (width - len(text))
-    if width <= 1:
-        return "…" * width
-    return text[: width - 1] + "…"
-
-
-def set_sized_description(pbar: Any, text: str) -> None:
+def set_sized_description(pbar: Any, text: str, rel_path: str = "") -> None:
     """Set the description of a progress bar to a truncated version of the text
 
     Args:
         pbar (Any): The progress bar to update
         text (str): The text to set as the description
+        rel_path (str, optional): The relative path to prepend to the text
     """
 
     extra = getattr(pbar, "_two_line_extra_width", None)
 
     if extra is None:
-        pbar.set_description(truncate_description(text))
+        pbar.set_description(fit_text_to_width(50, text, rel_path))
         return
 
     term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
     max_len = max(0, term_cols - int(extra))
 
-    pbar.set_description(fit_text_to_width(text, max_len))
+    pbar.set_description(fit_text_to_width(max_len, text, rel_path))
 
 
 def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[Any]]:
@@ -198,12 +210,10 @@ def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[An
         "smoothing": 0.1,
     }
 
-    term_cols = max(50, shutil.get_terminal_size(fallback=(80, 24)).columns)
-
-    if term_cols > 99:
+    if shutil.get_terminal_size(fallback=(80, 24)).columns > 99:
         unit = "console" if is_console else "savefile"
-        desc = truncate_description(
-            "Processing " + ("consoles" if is_console else "savefiles")
+        desc = fit_text_to_width(
+            50, "Processing: " + ("consoles" if is_console else "savefiles")
         )
 
         bar_format = "{l_bar}{bar}| " + stats
@@ -297,10 +307,8 @@ def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, Crawling
     dotenv.load_dotenv(dotenv_path)
 
     api_url = os.getenv("API_URL", "").rstrip("/")
-    email = os.getenv("EMAIL")
-    password = os.getenv("PASSWORD")
 
-    if not email or not password:
+    if not os.getenv("EMAIL") or not os.getenv("PASSWORD"):
         raise ValueError("EMAIL and PASSWORD must be set in the .env file")
 
     console_names, saves_paths = [
@@ -726,10 +734,7 @@ def process_console_savefiles(
     )
 
     for savefile, availability in available_savefiles.items():
-        if getattr(savefile_pbar, "_two_line_extra_width", None) is not None:
-            set_sized_description(savefile_pbar, f"{savefile.name}")
-        else:
-            set_sized_description(savefile_pbar, f"Processing: {savefile.name}")
+        set_sized_description(savefile_pbar, savefile.name, savefile.rel_path)
 
         processing_result = process_savefile(
             savefile, availability, savefile_controller, crawling_modes
@@ -774,10 +779,7 @@ def crawl_savefiles(
     )
 
     for index, console in enumerate(local_consoles):
-        if getattr(console_pbar, "_two_line_extra_width", None) is not None:
-            set_sized_description(console_pbar, f"{console.name}")
-        else:
-            set_sized_description(console_pbar, f"Processing: {console.name}")
+        set_sized_description(console_pbar, console.name)
 
         if console.id is None:
             results[console] = [1]
