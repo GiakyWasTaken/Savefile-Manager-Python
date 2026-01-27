@@ -20,6 +20,11 @@ from models import Console, Savefile
 from savefile_controller import SavefileController
 
 
+# Load dotenv once at module level
+ENV_FILE_PATH = dotenv.find_dotenv()
+dotenv.load_dotenv(ENV_FILE_PATH)
+
+
 class CrawlingMode(Enum):
     """
     Enum representing different modes for crawling and downloading savefiles
@@ -111,7 +116,9 @@ def get_logger_level() -> Logger:
     }
 
     log_level = verbosity_map.get(args.verbose, LogLevel.INFO)
-    return Logger(print_log_level=log_level)
+    logs_path = os.getenv("LOGS_PATH") or "logs"
+
+    return Logger(logs_path=logs_path, print_log_level=log_level)
 
 
 logger = get_logger_level()
@@ -303,11 +310,8 @@ def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, Crawling
     Load environment variables from the .env file and return necessary configurations
 
     Returns:
-        tuple: Tuple containing console names, saves paths, API URL, and crawling modes
+        tuple: Tuple containing console names, saves paths, API URL and crawling modes
     """
-
-    dotenv_path = dotenv.find_dotenv()
-    dotenv.load_dotenv(dotenv_path)
 
     api_url = os.getenv("API_URL", "").rstrip("/")
 
@@ -315,7 +319,7 @@ def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, Crawling
         raise ValueError("EMAIL and PASSWORD must be set in the .env file")
 
     console_names, saves_paths = [
-        extract_bash_array(dotenv_path, name)
+        extract_bash_array(ENV_FILE_PATH, name)
         for name in ["CONSOLE_NAMES", "SAVES_PATHS"]
     ]
 

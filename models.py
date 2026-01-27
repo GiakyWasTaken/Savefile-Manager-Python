@@ -270,8 +270,9 @@ class Savefile(Entity):
         Args:
             content (bytes): The content to write to the savefile
         """
-        with open(self.abs_path, "wb") as file:
-            file.write(content)
+        if self.abs_path and os.path.exists(self.abs_path):
+            with open(self.abs_path, "wb") as file:
+                file.write(content)
 
     def __hash__(self) -> int:
         """

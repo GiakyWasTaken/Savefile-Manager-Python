@@ -6,7 +6,6 @@ Provides logging functionality with support for file and console outputs
 import os
 import datetime
 from enum import Enum
-from typing import Optional
 import colorama
 from tqdm import tqdm
 
@@ -30,8 +29,9 @@ class Logger:
         Supports different log levels and automatic log file management
     """
 
-    _file_log_level: Optional[LogLevel] = None
-    _print_log_level: Optional[LogLevel] = None
+    _file_log_level: LogLevel = LogLevel.DEBUG
+    _print_log_level: LogLevel = LogLevel.DEBUG
+    _logs_path: str = "log"
     _initialized = False
 
     @classmethod
@@ -54,9 +54,19 @@ class Logger:
         """
         return cls._print_log_level
 
+    @classmethod
+    def reset_logger(cls):
+        """
+        Reset the Logger class to its initial state
+        """
+        cls._initialized = False
+        cls._file_log_level = LogLevel.DEBUG
+        cls._print_log_level = LogLevel.DEBUG
+
     def __init__(
         self,
         calling_class: str = "Main",
+        logs_path: str = "log",
         file_log_level: LogLevel = LogLevel.DEBUG,
         print_log_level: LogLevel = LogLevel.WARNING,
     ) -> None:
@@ -65,26 +75,29 @@ class Logger:
 
         Args:
             calling_class (str, optional): Name of the calling class. Defaults to "Main"
+            logs_path (str, optional): Path to store log files. Defaults to "log"
             file_log_level (LogLevel, optional): Log level for file output. Defaults to DEBUG
             print_log_level (LogLevel, optional): Log level for console output. Defaults to WARNING
         """
-        self.calling_class = calling_class
-        self.log_file = (
-            f"log/savefile_{datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S')}.log"
-        )
-
         if not Logger._initialized:
             Logger._file_log_level = file_log_level
             Logger._print_log_level = print_log_level
+            Logger._logs_path = logs_path
             Logger._initialized = True
 
-        if not os.path.exists("log"):
-            os.makedirs("log")
+        self.calling_class = calling_class
+        self.log_file = (
+            f"{Logger._logs_path}/savefile_"
+            f"{datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S')}.log"
+        )
+
+        if not os.path.exists(Logger._logs_path):
+            os.makedirs(Logger._logs_path)
 
         # Remove logs older than a week
         one_week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
-        for file in os.listdir("log"):
-            file_path = os.path.join("log", file)
+        for file in os.listdir(Logger._logs_path):
+            file_path = os.path.join(Logger._logs_path, file)
             if os.path.isfile(file_path):
                 file_creation_time = datetime.datetime.fromtimestamp(
                     os.path.getctime(file_path)
@@ -109,18 +122,12 @@ class Logger:
         )
 
         # Write to a log file
-        if (
-            Logger._file_log_level is not None
-            and message_level.value >= Logger._file_log_level.value
-        ):
+        if message_level.value >= Logger._file_log_level.value:
             with open(self.log_file, "a", encoding="utf-8") as log_file:
                 log_file.write(log_message + "\n")
 
         # Print to console (using tqdm.write to avoid interfering with progress bars)
-        if (
-            Logger._print_log_level is not None
-            and message_level.value >= Logger._print_log_level.value
-        ):
+        if message_level.value >= Logger._print_log_level.value:
             if os.name == "nt":
                 colorama.init()
                 color_map = {

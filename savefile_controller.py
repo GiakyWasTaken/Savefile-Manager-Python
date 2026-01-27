@@ -107,26 +107,8 @@ class SavefileController(ControllerBase[Savefile]):
             headers=headers,
             timeout=10,
         )
-        result = None
 
-        self.logger.log_debug(
-            f"POST {url} - Response: {response.status_code} - {response.text}"
-        )
-
-        if response.status_code == 201:
-            self.logger.log_info(f"Created new {self.resource}")
-            result = super().convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
-        elif response.status_code == 409:
-            self.logger.log_warning(
-                f"Another {self.resource} with the same data already exists"
-            )
-        else:
-            self.logger.log_error(
-                f"Error creating {self.resource}: {response.status_code} - {response.text}"
-            )
-
-        return result
+        return self._log_and_handle_response(response, "POST", url)
 
     @override
     def update(self, model: Savefile) -> Union[Savefile, None]:
@@ -145,21 +127,5 @@ class SavefileController(ControllerBase[Savefile]):
             headers=headers,
             timeout=10,
         )
-        result = None
 
-        self.logger.log_debug(
-            f"PUT {url} - Response: {response.status_code} - {response.text}"
-        )
-
-        if response.status_code == 200:
-            self.logger.log_info(f"Updated {self.resource} {model.id}")
-            result = super().convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
-        elif response.status_code == 404:
-            self.logger.log_warning(f"{self.resource} {model.id} not found")
-        else:
-            self.logger.log_error(
-                f"Error updating {self.resource}: {response.status_code} - {response.text}"
-            )
-
-        return result
+        return self._log_and_handle_response(response, "PUT", url, model.id)

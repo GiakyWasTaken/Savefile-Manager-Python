@@ -5,6 +5,7 @@ Provides generic methods for CRUD operations on resources
 
 from abc import ABC
 from typing import Any, Dict, List, Optional, Generic, TypeVar, Type, Union
+from requests import Response
 from local_ssl_context import LocalSSLContext
 from logger import Logger
 from models import Entity
@@ -281,26 +282,8 @@ class ControllerBase(ABC, Generic[T]):
         response = LocalSSLContext.get_session().post(
             url, json=data, headers=headers, timeout=10
         )
-        result = None
 
-        self.logger.log_debug(
-            f"POST {url} - Response: {response.status_code} - {response.text}"
-        )
-
-        if response.status_code == 201:
-            self.logger.log_info(f"Created new {self.resource}")
-            result = self.convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
-        elif response.status_code == 409:
-            self.logger.log_warning(
-                f"Another {self.resource} with the same data already exists"
-            )
-        else:
-            self.logger.log_error(
-                f"Error creating {self.resource}: {response.status_code} - {response.text}"
-            )
-
-        return result
+        return self._log_and_handle_response(response, "POST", url)
 
     def update(self, model: T) -> Optional[T]:
         """
@@ -320,31 +303,8 @@ class ControllerBase(ABC, Generic[T]):
         response = LocalSSLContext.get_session().put(
             url, json=data, headers=headers, timeout=10
         )
-        result = None
 
-        self.logger.log_debug(
-            f"PUT {url} - Response: {response.status_code} - {response.text}"
-        )
-
-        if response.status_code in (200, 204):
-            self.logger.log_info(f"Updated {self.resource} with ID {model.id}")
-            result = self.convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
-        elif response.status_code == 404:
-            self.logger.log_warning(
-                f"{self.resource.capitalize()} with ID {model.id} not found"
-            )
-        elif response.status_code == 409:
-            self.logger.log_warning(
-                f"Another {self.resource} with the same data already exists"
-            )
-        else:
-            self.logger.log_error(
-                f"Error updating {self.resource} with ID {model.id}: "
-                f"{response.status_code} - {response.text}"
-            )
-
-        return result
+        return self._log_and_handle_response(response, "PUT", url, model.id)
 
     def delete(self, resource_id: int) -> bool:
         """
@@ -404,3 +364,94 @@ class ControllerBase(ABC, Generic[T]):
                 return False
 
         return True
+
+    def _log_and_handle_response(
+        self,
+        response: Response,
+        method: str,
+        url: str,
+        model_id: Optional[int] = None,
+    ) -> Optional[T]:
+        """
+        Log the request/response and delegate to the appropriate handler
+
+        Args:
+            response (Response): The response object from the request
+            method (str): HTTP method used (POST, PUT)
+            url (str): The request URL
+            model_id (Optional[int]): The ID of the model (for update operations)
+
+        Returns:
+            Optional[T]: Model instance or None
+        """
+        self.logger.log_debug(
+            f"{method} {url} - Response: {response.status_code} - {response.text}"
+        )
+
+        if method == "POST":
+            return self._handle_save_response(response)
+        if method == "PUT":
+            return self._handle_update_response(response, model_id)
+        return None
+
+    def _handle_save_response(self, response: Response) -> Optional[T]:
+        """
+        Handle the response from a save (POST) request
+
+        Args:
+            response (Response): The response object from the POST request
+
+        Returns:
+            Optional[T]: Created resource as a model instance, or None if an error occurs
+        """
+        result = None
+
+        if response.status_code == 201:
+            self.logger.log_info(f"Created new {self.resource}")
+            result = self.convert_to_model(response.json())
+            result = result[0] if isinstance(result, list) else result
+        elif response.status_code == 409:
+            self.logger.log_warning(
+                f"Another {self.resource} with the same data already exists"
+            )
+        else:
+            self.logger.log_error(
+                f"Error creating {self.resource}: {response.status_code} - {response.text}"
+            )
+
+        return result
+
+    def _handle_update_response(
+        self, response: Response, model_id: Optional[int]
+    ) -> Optional[T]:
+        """
+        Handle the response from an update (PUT) request
+
+        Args:
+            response (Response): The response object from the PUT request
+            model_id (Optional[int]): The ID of the model being updated
+
+        Returns:
+            Optional[T]: Updated resource as a model instance, or None if an error occurs
+        """
+        result = None
+
+        if response.status_code in (200, 204):
+            self.logger.log_info(f"Updated {self.resource} with ID {model_id}")
+            result = self.convert_to_model(response.json())
+            result = result[0] if isinstance(result, list) else result
+        elif response.status_code == 404:
+            self.logger.log_warning(
+                f"{self.resource.capitalize()} with ID {model_id} not found"
+            )
+        elif response.status_code == 409:
+            self.logger.log_warning(
+                f"Another {self.resource} with the same data already exists"
+            )
+        else:
+            self.logger.log_error(
+                f"Error updating {self.resource} with ID {model_id}: "
+                f"{response.status_code} - {response.text}"
+            )
+
+        return result
