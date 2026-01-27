@@ -62,15 +62,14 @@ class ProcessingResult(Enum):
     Enum representing the result of processing a savefile
 
     Attributes:
-        CREATED: Savefile was created successfully
-        UPDATED_LOCAL: Local savefile was updated successfully
-        UPDATED_REMOTE: Remote savefile was updated successfully
-        DOWNLOADED: Savefile was downloaded successfully
-        SKIPPED: Savefile was skipped (not uploaded or downloaded)
+        CONSOLE_FAILED: Failed to process the console
         IGNORED: Savefile was ignored (not processed due to mode settings)
+        SKIPPED: Savefile was skipped (not uploaded or downloaded)
+        CREATED: Savefile was created successfully
+        UPLOADED: Remote savefile was updated successfully
+        DOWNLOADED: Savefile was downloaded successfully
         FAILED_CREATION: Failed to create the savefile
-        FAILED_LOCAL_UPDATE: Failed to update the local savefile
-        FAILED_REMOTE_UPDATE: Failed to update the remote savefile
+        FAILED_UPLOAD: Failed to update the remote savefile
         FAILED_DOWNLOAD: Failed to download the savefile
     """
 
@@ -78,7 +77,7 @@ class ProcessingResult(Enum):
     IGNORED = 1
     SKIPPED = 2
     CREATED = 3
-    UPDATED = 4
+    UPLOADED = 4
     DOWNLOADED = 5
     FAILED_CREATION = 6
     FAILED_UPLOAD = 7
@@ -181,7 +180,11 @@ def set_sized_description(pbar: Any, text: str, rel_path: str = "") -> None:
         pbar.set_description(fit_text_to_width(50, text, rel_path))
         return
 
-    term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    try:
+        term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+    except AttributeError:
+        term_cols = 80
+
     max_len = max(0, term_cols - int(extra))
 
     pbar.set_description(fit_text_to_width(max_len, text, rel_path))
@@ -371,16 +374,16 @@ def get_crawling_downloading_mode() -> tuple[CrawlingMode, CrawlingMode]:
 
     # Mapping shortcut to Enum
     shortcut_map = {
-        "u": "update",
-        "f": "force",
-        "n": "new",
-        "a": "auto",
-        "l": "all",
-        "none": "none",
+        "u": CrawlingMode.UPDATE,
+        "f": CrawlingMode.FORCE,
+        "n": CrawlingMode.NEW,
+        "a": CrawlingMode.AUTO,
+        "l": CrawlingMode.ALL,
+        "none": CrawlingMode.NONE,
     }
 
-    crawl_mode = CrawlingMode[shortcut_map[args.crawl].upper()]
-    downloading_mode = CrawlingMode[shortcut_map[args.download].upper()]
+    crawl_mode = shortcut_map[args.crawl]
+    downloading_mode = shortcut_map[args.download]
 
     if crawl_mode == CrawlingMode.NONE and downloading_mode == CrawlingMode.NONE:
         logger.log_info(
@@ -393,7 +396,7 @@ def get_crawling_downloading_mode() -> tuple[CrawlingMode, CrawlingMode]:
     logger.log_info(f"Crawling mode selected: {crawl_mode.name}")
     logger.log_info(f"Downloading mode selected: {downloading_mode.name}")
 
-    return (crawl_mode, downloading_mode)
+    return crawl_mode, downloading_mode
 
 
 def retrieve_local_consoles(
@@ -407,6 +410,7 @@ def retrieve_local_consoles(
     Args:
         console_names (list[str]): List of local console names
         console_controller (ConsoleController): Controller for console operations
+        create_new_consoles (bool): Whether to create new consoles if they don't exist remotely
 
     Returns:
         list[Console]: List of Console objects representing local consoles
@@ -479,6 +483,7 @@ def handle_downloading_savefile(
         savefile (Savefile): Savefile object to handle
         savefile_controller (SavefileController): Controller for savefile operations
         downloading_mode (CrawlingMode): Mode for downloading the savefile
+        overwrite_existing (bool, optional): Whether to overwrite existing local savefiles
 
     Returns:
         str: Result of the savefile handling
@@ -549,7 +554,7 @@ def handle_existing_savefile(
             f"Updating savefile '{savefile.name}' in console '{console_name}'"
         )
         result = savefile_controller.update(savefile)
-        return ProcessingResult.UPDATED if result else ProcessingResult.FAILED_UPLOAD
+        return ProcessingResult.UPLOADED if result else ProcessingResult.FAILED_UPLOAD
 
     # If the existing savefile is newer than the local one, download it
     if savefile.modified_at < existing_savefile.modified_at and crawling_modes[1] in (
@@ -581,9 +586,8 @@ def process_savefile(
     Process a savefile by checking if it exists, and handling it based on the crawling mode
 
     Args:
-        file (str): Name of the savefile
-        rel_dir (str): Relative directory path of the savefile
-        console (Console): Console object associated with the savefile
+        savefile (Savefile): Savefile object to process
+        availability (SavefileAvailability): Availability of the savefile
         savefile_controller (SavefileController): Controller for savefile operations
         crawling_modes (tuple[CrawlingMode, CrawlingMode]): Modes for crawling the savefile
 
@@ -633,8 +637,8 @@ def retrieve_local_remote_savefiles(
         remote_savefile.modified_at = None
 
     # Create a dictionary to track which remote files exist locally
-    available_savefiles = {
-        (savefile): SavefileAvailability.REMOTE for savefile in remote_savefiles
+    available_savefiles: dict[Savefile, SavefileAvailability] = {
+        savefile: SavefileAvailability.REMOTE for savefile in remote_savefiles
     }
 
     # Walk through the local files
@@ -842,7 +846,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
 
         logger.log_info(f"Results for Console: {console.name}")
         logger.log_info(f"Created:          {counts[ProcessingResult.CREATED.value]}")
-        logger.log_info(f"Updated:          {counts[ProcessingResult.UPDATED.value]}")
+        logger.log_info(f"Updated:          {counts[ProcessingResult.UPLOADED.value]}")
         logger.log_info(
             f"Downloaded:       {counts[ProcessingResult.DOWNLOADED.value]}"
         )
@@ -878,7 +882,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
         counts[ProcessingResult.CREATED.value] for counts in results.values()
     )
     total_updated = sum(
-        counts[ProcessingResult.UPDATED.value] for counts in results.values()
+        counts[ProcessingResult.UPLOADED.value] for counts in results.values()
     )
     total_downloaded = sum(
         counts[ProcessingResult.DOWNLOADED.value] for counts in results.values()

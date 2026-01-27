@@ -2,4 +2,4 @@ requests
 python-dotenv
 colorama
 tqdm
-shutil
+urllib3

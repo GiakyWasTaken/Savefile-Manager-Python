@@ -87,13 +87,13 @@ python main.py -c auto -d update
 
 These are configured in the `.env` file:
 
-| Variable        | Description                         |
-|----------------|-------------------------------------|
-| `API_URL`       | Base URL of the API server          |
-| `EMAIL`         | Email used for login                |
-| `PASSWORD`      | Password used for login             |
-| `CONSOLE_NAMES` | List of consoles to manage          |
-| `SAVES_PATHS`   | Local paths to your savefiles       |
+| Variable        | Description                   |
+|-----------------|-------------------------------|
+| `API_URL`       | Base URL of the API server    |
+| `EMAIL`         | Email used for login          |
+| `PASSWORD`      | Password used for login       |
+| `CONSOLE_NAMES` | List of consoles to manage    |
+| `SAVES_PATHS`   | Local paths to your savefiles |
 
 ## 📝 Logs
 

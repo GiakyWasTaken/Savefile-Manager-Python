@@ -97,8 +97,6 @@ class ControllerBase(ABC, Generic[T]):
         Returns:
             Union[List[T], T]: Model instance or list of model instances
         """
-        model = None
-
         if self.model_class:
             if isinstance(data, dict):
                 instance = self.model_class()
@@ -225,7 +223,7 @@ class ControllerBase(ABC, Generic[T]):
 
         Args:
             model (T): Model instance with search criteria
-            multiple_search (bool): Whether to search for multiple resources
+            allow_multiple_results (bool): Whether to search for multiple resources
 
         Returns:
             Optional[T]: Matching resource as a model instance, or None if not found
@@ -385,8 +383,9 @@ class ControllerBase(ABC, Generic[T]):
 
         return result
 
+    @staticmethod
     def _have_same_values(
-        self, model_json: Dict[str, Any], item_json: Dict[str, Any]
+        model_json: Dict[str, Any], item_json: Dict[str, Any]
     ) -> bool:
         """
         Check if an item matches the search criteria

@@ -263,22 +263,15 @@ class Savefile(Entity):
         return None
 
     @savefile.setter
-    def savefile(self, content: bytes) -> bool:
+    def savefile(self, content: bytes):
         """
         Write content to the savefile in the file system
 
         Args:
             content (bytes): The content to write to the savefile
-
-        Returns:
-            bool: True if the savefile was successfully written, False otherwise
         """
-        if not self.abs_path or not os.path.exists(self.abs_path):
-            return False
-
         with open(self.abs_path, "wb") as file:
             file.write(content)
-        return True
 
     def __hash__(self) -> int:
         """
