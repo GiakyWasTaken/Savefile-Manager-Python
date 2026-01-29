@@ -1,5 +1,7 @@
 requests
+responses
 python-dotenv
 colorama
 tqdm
 urllib3
+pytest
