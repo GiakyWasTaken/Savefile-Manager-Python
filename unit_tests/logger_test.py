@@ -1,8 +1,10 @@
 """Unit tests for the Logger module"""
 
-import os.path
 import datetime
+import os.path
+
 import pytest
+
 from logger import Logger, LogLevel
 
 LOGS_PATH = "test_logs"

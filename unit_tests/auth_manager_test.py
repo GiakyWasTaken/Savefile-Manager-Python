@@ -1,6 +1,7 @@
 """Unit tests for AuthManager module"""
 
 import os
+
 import pytest
 import responses
 from responses import RequestsMock

@@ -4,21 +4,21 @@ Handles initialization and execution of the application
 """
 
 import argparse
-from enum import Enum
 import os
 import re
 import shutil
+from enum import Enum
 from typing import Optional, Any, Tuple
 
 import dotenv
 from tqdm import tqdm
+
 from auth_manager import AuthManager
 from console_controller import ConsoleController
 from local_ssl_context import LocalSSLContext
 from logger import Logger, LogLevel
 from models import Console, Savefile
 from savefile_controller import SavefileController
-
 
 # Load dotenv once at module level
 ENV_FILE_PATH = dotenv.find_dotenv()
@@ -36,7 +36,6 @@ class CrawlingMode(Enum):
         NEW: Uploads or Downloads only new savefiles and ignores existing ones
         AUTO: Uploads or Downloads new savefiles and updates existing ones by last modified date
         ALL: Uploads or Downloads every savefile present in the directory
-
     """
 
     NONE = 0
@@ -551,8 +550,8 @@ def handle_existing_savefile(
 
     # If the local savefile is newer than the existing one, update it
     if savefile.modified_at > existing_savefile.modified_at and crawling_modes[0] in (
-        CrawlingMode.UPDATE,
-        CrawlingMode.AUTO,
+            CrawlingMode.UPDATE,
+            CrawlingMode.AUTO,
     ):
         logger.log_info(
             f"Updating savefile '{savefile.name}' in console '{console_name}'"
@@ -562,8 +561,8 @@ def handle_existing_savefile(
 
     # If the existing savefile is newer than the local one, download it
     if savefile.modified_at < existing_savefile.modified_at and crawling_modes[1] in (
-        CrawlingMode.UPDATE,
-        CrawlingMode.AUTO,
+            CrawlingMode.UPDATE,
+            CrawlingMode.AUTO,
     ):
         return handle_downloading_savefile(
             savefile,
@@ -843,9 +842,9 @@ def print_results(results: dict[Console, list[int]]) -> None:
 
         if not any_failed:
             any_failed = any(
-                counts[ProcessingResult.FAILED_CREATION.value :]
-                or counts[ProcessingResult.FAILED_UPLOAD.value :]
-                or counts[ProcessingResult.FAILED_DOWNLOAD.value :]
+                counts[ProcessingResult.FAILED_CREATION.value:]
+                or counts[ProcessingResult.FAILED_UPLOAD.value:]
+                or counts[ProcessingResult.FAILED_DOWNLOAD.value:]
             )
 
         logger.log_info(f"Results for Console: {console.name}")
@@ -877,7 +876,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
         console_failed := sum(
             counts[ProcessingResult.CONSOLE_FAILED.value] for counts in results.values()
         )
-        > 0
+                          > 0
     ):
         logger.log_error(f"Total consoles with errors:          {console_failed}")
 
@@ -912,7 +911,7 @@ def print_results(results: dict[Console, list[int]]) -> None:
             + counts[ProcessingResult.FAILED_DOWNLOAD.value]
             for counts in results.values()
         )
-        > 0
+                                  > 0
     ):
         logger.log_error(
             f"Total savefiles with errors:         {total_savefiles_errors}"

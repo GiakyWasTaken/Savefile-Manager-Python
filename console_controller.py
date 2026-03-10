@@ -4,6 +4,7 @@ Provides functionality to interact with console resources via API
 """
 
 from typing import Any, Dict, override
+
 from controller_base import ControllerBase
 from models import Console
 

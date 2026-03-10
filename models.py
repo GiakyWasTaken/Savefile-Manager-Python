@@ -3,12 +3,11 @@ Data models for the Savefile Manager application
 Defines entities and their properties for API interactions
 """
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BufferedReader
-import os
 from typing import Dict, Optional, Union
-
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.000000Z"
 
@@ -84,6 +83,18 @@ class Entity:
         result: Dict[str, object] = {}
         result.update(self._get_instance_vars())
         result.update(self._get_properties(result))
+
+        def _recurse_value(val):
+            if isinstance(val, Entity):
+                return val.to_json()
+            if isinstance(val, dict):
+                return {k: _recurse_value(v) for k, v in val.items()}
+            if isinstance(val, list):
+                return [_recurse_value(x) for x in val]
+            return val
+
+        for key, value in list(result.items()):
+            result[key] = _recurse_value(value)
         return result
 
     def _get_instance_vars(self) -> Dict[str, object]:
@@ -122,7 +133,7 @@ class Entity:
         """
         for key, value in data.items():
             if hasattr(self.__class__, key) and isinstance(
-                getattr(self.__class__, key), property
+                    getattr(self.__class__, key), property
             ):
                 setattr(self, key, value)
             elif hasattr(self, key):
@@ -246,8 +257,16 @@ class Savefile(Entity):
         Args:
             value (Console): Console object to associate with the savefile
         """
-        self._console = value
-        self.id_console = value.id
+        if isinstance(value, Console):
+            console = value
+        elif isinstance(value, Dict):
+            console = Console()
+            console.from_json(value)
+        else:
+            raise ValueError("Invalid type for console attribute")
+
+        self._console = console
+        self.id_console = console.id
 
     @property
     def savefile(self) -> Optional[BufferedReader]:
@@ -296,7 +315,7 @@ class Savefile(Entity):
         if not isinstance(other, Savefile):
             return False
         return self.id == other.id or (
-            self.name == other.name
-            and self.rel_path == other.rel_path
-            and self.id_console == other.id_console
+                self.name == other.name
+                and self.rel_path == other.rel_path
+                and self.id_console == other.id_console
         )
