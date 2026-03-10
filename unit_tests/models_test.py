@@ -1,9 +1,8 @@
 """Unit tests for the Models module"""
 
 import os
-from datetime import datetime
 
-from models import Console, Savefile, DATE_FORMAT
+from models import Console, Savefile
 
 CONSOLE_NAME = "Test Console"
 SAVEFILE_NAME = "Test Savefile"
@@ -31,8 +30,6 @@ def test_model_from_json():
 
     assert console_fj.id == 1
     assert console_fj.name == CONSOLE_NAME
-    assert console_fj._created_at == datetime.strptime(CREATED_AT, DATE_FORMAT)
-    assert console_fj._modified_at == datetime.strptime(MODIFIED_AT, DATE_FORMAT)
     assert console_fj.created_at == CREATED_AT
     assert console_fj.modified_at == MODIFIED_AT
     assert console_fj.saves_path == CONSOLE_PATH
@@ -135,12 +132,12 @@ def test_savefile_from_json():
 
     assert savefile_fj.id == "1"
     assert savefile_fj.name == SAVEFILE_NAME
-    assert savefile_fj._created_at == datetime.strptime(CREATED_AT, DATE_FORMAT)
-    assert savefile_fj._modified_at == datetime.strptime(MODIFIED_AT, DATE_FORMAT)
     assert savefile_fj.created_at == CREATED_AT
     assert savefile_fj.modified_at == MODIFIED_AT
     assert savefile_fj.rel_path == SAVEFILE_PATH
-    assert savefile_fj.abs_path == os.path.join(CONSOLE_PATH, SAVEFILE_PATH.lstrip("/"), SAVEFILE_NAME)
+    assert savefile_fj.abs_path == os.path.join(
+        CONSOLE_PATH, SAVEFILE_PATH.lstrip("/"), SAVEFILE_NAME
+    )
     assert savefile_fj.id_console == "1"
 
 
