@@ -5,7 +5,9 @@ Provides generic methods for CRUD operations on resources
 
 from abc import ABC
 from typing import Any, Dict, List, Optional, Generic, TypeVar, Type, Union
+
 from requests import Response
+
 from local_ssl_context import LocalSSLContext
 from logger import Logger
 from models import Entity

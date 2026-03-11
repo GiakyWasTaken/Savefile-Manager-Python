@@ -65,5 +65,12 @@ class LocalSSLContext(HTTPAdapter):
         """
 
         session = requests.Session()
-        session.mount(LocalSSLContext._api_url, LocalSSLContext())
+        # If no specific API URL is set, mount the adapter for both http and https
+        # schemes so it acts as a fallback for all requests. Otherwise mount it
+        # at the configured API URL prefix.
+        if not LocalSSLContext._api_url:
+            session.mount("https://", LocalSSLContext())
+            session.mount("http://", LocalSSLContext())
+        else:
+            session.mount(LocalSSLContext._api_url, LocalSSLContext())
         return session

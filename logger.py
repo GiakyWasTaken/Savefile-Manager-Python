@@ -3,9 +3,10 @@ Logger module for the Savefile Manager application
 Provides logging functionality with support for file and console outputs
 """
 
-import os
 import datetime
+import os
 from enum import Enum
+
 import colorama
 from tqdm import tqdm
 

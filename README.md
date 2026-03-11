@@ -1,8 +1,11 @@
 # 🎮 Savefile Manager Python
 
-This repository contains a collection of Python scripts designed to automate the management of local savefiles by interacting with a remote API. It supports full CRUD operations on both savefiles and consoles.
+This repository contains a collection of Python scripts designed to automate the management of local savefiles by
+interacting with a remote API. It supports full CRUD operations on both savefiles and consoles.
 
-Originally developed in Bash, the system was completely rewritten in Python to enhance flexibility, maintainability, and scalability. These scripts were built from scratch during an internship in Maribor, Slovenia, with no prior Laravel experience, and were fully developed, tested, and deployed in under a month.
+Originally developed in Bash, the system was completely rewritten in Python to enhance flexibility, maintainability, and
+scalability. These scripts were built from scratch during an internship in Maribor, Slovenia, with no prior Laravel
+experience, and were fully developed, tested, and deployed in under a month.
 
 ## 🚀 Features
 
@@ -14,7 +17,7 @@ Originally developed in Bash, the system was completely rewritten in Python to e
 
 ## 📦 Requirements
 
-- Python 3.8 or higher
+- Python 3.12 or higher
 - Install dependencies with:
 
   ```bash
@@ -43,18 +46,18 @@ Originally developed in Bash, the system was completely rewritten in Python to e
    ```
 
 3. Configure the environment variables:
-   - Copy `.env.example` to `.env`:
+    - Copy `.env.example` to `.env`:
 
-     ```bash
-     cp .env.example .env
-     ```
+      ```bash
+      cp .env.example .env
+      ```
 
-   - Edit `.env` with your values:
-     - `API_URL`: Base URL of the backend API
-     - `EMAIL`: Your login email
-     - `PASSWORD`: Your password
-     - `CONSOLE_NAMES`: List of console names to manage
-     - `SAVES_PATHS`: Corresponding savefile paths
+    - Edit `.env` with your values:
+        - `API_URL`: Base URL of the backend API
+        - `EMAIL`: Your login email
+        - `PASSWORD`: Your password
+        - `CONSOLE_NAMES`: List of console names to manage
+        - `SAVES_PATHS`: Corresponding savefile paths
 
 ## ▶️ Usage
 
@@ -75,13 +78,13 @@ python main.py -c auto -d update
 
 ### Modes Reference
 
-| Code | Mode    | Description                                                  |
-|------|---------|--------------------------------------------------------------|
-| `u`  | update  | Syncs files only if remote is newer                          |
-| `f`  | force   | Forces overwrite of all files regardless of timestamps       |
-| `n`  | new     | Downloads/uploads only files that are not present locally    |
-| `a`  | auto    | Automatically chooses the appropriate action per file        |
-| `l`  | all     | Processes everything without any filtering                   |
+| Code | Mode   | Description                                               |
+|------|--------|-----------------------------------------------------------|
+| `u`  | update | Syncs files only if remote is newer                       |
+| `f`  | force  | Forces overwrite of all files regardless of timestamps    |
+| `n`  | new    | Downloads/uploads only files that are not present locally |
+| `a`  | auto   | Automatically chooses the appropriate action per file     |
+| `l`  | all    | Processes everything without any filtering                |
 
 ## 🔐 Environment Variables
 
