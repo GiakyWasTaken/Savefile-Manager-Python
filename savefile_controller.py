@@ -78,14 +78,25 @@ class SavefileController(ControllerBase[Savefile]):
         os.makedirs(file_path.parent, exist_ok=True)
 
         with open(file_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+            # Some test/mocked response objects may not implement
+            # iter_content (they may only expose .content). Prefer
+            # streaming via iter_content when available, otherwise
+            # fall back to writing the full content.
+            if hasattr(response, "iter_content") and callable(getattr(response, "iter_content")):
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            else:
+                # response.content is expected to be bytes
+                f.write(response.content)
 
         # Set the local file's last modified datetime to savefile_model.modified_at
         if savefile_model.modified_at:
-            modified_time = datetime.fromisoformat(
-                savefile_model.modified_at
-            ).timestamp()
+            # Normalize trailing 'Z' to '+00:00' so fromisoformat accepts it
+            s = savefile_model.modified_at
+            if isinstance(s, str) and s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+
+            modified_time = datetime.fromisoformat(s).timestamp()
 
             os.utime(file_path, (os.path.getatime(file_path), modified_time))
 
