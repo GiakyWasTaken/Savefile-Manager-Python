@@ -3,6 +3,10 @@
 import datetime
 import io
 import os
+from pathlib import Path
+from typing import Any, Dict, Iterable, Optional, Tuple
+
+from _pytest.monkeypatch import MonkeyPatch
 
 from models import Savefile, DATE_FORMAT
 from savefile_controller import SavefileController
@@ -17,18 +21,19 @@ class MockResponse:
     """A simple mock response object to simulate HTTP responses in tests"""
 
     def __init__(
-        self, status_code: int, json_data=None, text: str = "", content: bytes = b""
+        self, status_code: int, json_data: Optional[Dict[str, object]], text: str = "",
+        content: bytes = b""
     ):
         self.status_code = status_code
         self._json = json_data
         self.text = text
         self.content = content
 
-    def json(self):
+    def json(self) -> Dict[str, object]:
         """Simulate the .json() method of a real HTTP response object"""
-        return self._json
+        return self._json or {}
 
-    def iter_content(self, chunk_size=8192):
+    def iter_content(self, chunk_size: int = 8192) -> Iterable[bytes]:
         """
         Simulate the .iter_content() method of a real HTTP response object for streaming downloads
         """
@@ -39,27 +44,30 @@ class MockResponse:
 class MockSession:
     """A mock session to simulate HTTP requests and responses for testing the ConsoleController"""
 
-    def __init__(self, responses_map: dict):
+    def __init__(self, responses_map: Dict[Tuple[str, str], MockResponse]):
         # key: (method, url) -> MockResponse
-        self.headers = None
-        self.stream = None
-        self.timeout = None
+        self.headers: Optional[Dict[str, str]] = None
+        self.stream: Optional[bool] = None
+        self.timeout: Optional[int] = None
         self._map = responses_map
-        self.last_data = None
-        self.last_files = None
+        self.last_data: Optional[Dict[str, object]] = None
+        self.last_files: Optional[object] = None
 
-    def _respond(self, method: str, url: str):
+    def _respond(self, method: str, url: str) -> MockResponse:
         """Helper method to return the appropriate MockResponse based on the method and URL"""
         return self._map.get((method, url), MockResponse(500, json_data=None, text="error"))
 
-    def get(self, url, headers=None, stream=False, timeout=None):
+    def get(
+        self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
+        timeout: Optional[int] = None
+    ) -> MockResponse:
         """Simulate a GET request and return the corresponding MockResponse"""
         self.headers = headers
         self.stream = stream
         self.timeout = timeout
         return self._respond("GET", url)
 
-    def post(self, url, *args, **kwargs):
+    def post(self, url: str, *args: Any, **kwargs: Any) -> MockResponse:
         """
         Simulate a POST request and return the corresponding MockResponse
 
@@ -74,7 +82,7 @@ class MockSession:
         if files is None and len(args) >= 2:
             files = args[1]
 
-        json_body = kwargs.get("json", None)
+        json_body: Optional[Dict[str, object]] = kwargs.get("json", None)
         self.last_data = data if data is not None else json_body
         self.last_files = files
         self.headers = kwargs.get("headers", None)
@@ -85,7 +93,10 @@ class MockSession:
         return self._respond("POST", url)
 
 
-def create_controller_with_session(monkeypatch, responses_map):
+def create_controller_with_session(
+    monkeypatch: MonkeyPatch
+    , responses_map: Dict[Tuple[str, str], MockResponse]
+) -> Tuple[SavefileController, MockSession]:
     """
     Create a SavefileController wired to a mocked HTTP session
 
@@ -93,7 +104,7 @@ def create_controller_with_session(monkeypatch, responses_map):
     predetermined responses for specific (method, url) keys
 
     Returns:
-        tuple[SavefileController, MockSession]: controller and the mocked session
+        Tuple[SavefileController, MockSession]: controller and the mocked session
     """
 
     mock_session = MockSession(responses_map)
@@ -104,13 +115,13 @@ def create_controller_with_session(monkeypatch, responses_map):
     return SavefileController(API_URL, "dummy_token"), mock_session
 
 
-def test_get_returns_savefile_model_without_downloading(monkeypatch):
+def test_get_returns_savefile_model_without_downloading(monkeypatch: MonkeyPatch):
     """
     Ensure `get` returns a Savefile model when download_path is not provided
 
     Verifies fields are correctly mapped from the API response
     """
-    api_obj = {
+    api_obj: Dict[str, object] = {
         "id": 1,
         "file_name": "game.sav",
         "file_path": "saves/slot1",
@@ -136,14 +147,14 @@ def test_get_returns_savefile_model_without_downloading(monkeypatch):
     assert result.id_console == 2
 
 
-def test_get_downloads_file_and_sets_mtime(monkeypatch, tmp_path):
+def test_get_downloads_file_and_sets_mtime(monkeypatch: MonkeyPatch, tmp_path: Path):
     """
     Verify that `get(..., download_path=...)` downloads the file and sets mtime
 
     The test simulates two sequential GET responses: one for the JSON metadata
     and a second streaming response containing file bytes
     """
-    api_obj = {
+    api_obj: Dict[str, object] = {
         "id": 5,
         "file_name": "download.sav",
         "file_path": "slotX",
@@ -162,7 +173,7 @@ def test_get_downloads_file_and_sets_mtime(monkeypatch, tmp_path):
         call_count["n"] += 1
         if call_count["n"] == 1:
             return MockResponse(200, json_data=api_obj, text=str(api_obj))
-        return MockResponse(200, json_data=None, text="file", content=file_bytes)
+        return MockResponse(200, json_data={}, text="file", content=file_bytes)
 
     class SequenceSession(MockSession):
         """
@@ -173,7 +184,10 @@ def test_get_downloads_file_and_sets_mtime(monkeypatch, tmp_path):
         def __init__(self):
             super().__init__({})
 
-        def get(self, url, headers=None, stream=False, timeout=None):
+        def get(
+            self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
+            timeout: Optional[int] = None
+        ):
             return responder()
 
     seq_session = SequenceSession()
@@ -213,14 +227,14 @@ def test_get_headers_removes_content_type():
     assert "Content-Type" not in headers
 
 
-def test_save_uploads_file_and_handles_conflict(monkeypatch):
+def test_save_uploads_file_and_handles_conflict(monkeypatch: MonkeyPatch):
     """
     Test uploading a savefile and handling HTTP 409 conflict responses
 
     Ensures file-like objects from the model are sent and that conflict
     responses result in None
     """
-    api_obj = {
+    api_obj: Dict[str, object] = {
         "id": 11,
         "file_name": "u.sav",
         "file_path": "p",
@@ -254,14 +268,14 @@ def test_save_uploads_file_and_handles_conflict(monkeypatch):
     assert created_conflict is None
 
 
-def test_update_uses_method_override_and_handles_not_found(monkeypatch):
+def test_update_uses_method_override_and_handles_not_found(monkeypatch: MonkeyPatch):
     """
     Test that update uses `_method=PUT` override and handles 404
 
     Confirms the controller places `_method` in POST data for PHP-style
     method override and that a 404 response returns None
     """
-    api_obj = {
+    api_obj: Dict[str, object] = {
         "id": 21,
         "file_name": "u2.sav",
         "file_path": "p2",

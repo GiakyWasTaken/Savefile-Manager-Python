@@ -70,7 +70,6 @@ class LocalSSLContext(HTTPAdapter):
         # at the configured API URL prefix.
         if not LocalSSLContext._api_url:
             session.mount("https://", LocalSSLContext())
-            session.mount("http://", LocalSSLContext())
         else:
             session.mount(LocalSSLContext._api_url, LocalSSLContext())
         return session

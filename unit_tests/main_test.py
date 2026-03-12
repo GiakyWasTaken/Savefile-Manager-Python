@@ -5,7 +5,10 @@ import datetime
 import os
 import shutil
 import sys
-from typing import Optional
+from pathlib import Path
+from typing import Dict, Optional, List, Tuple
+
+from _pytest.monkeypatch import MonkeyPatch
 
 import main
 from console_controller import ConsoleController
@@ -37,7 +40,7 @@ def test_set_sized_description_uses_default_width_when_no_two_line_extra():
         def __init__(self):
             self.desc = None
 
-        def set_description(self, value):
+        def set_description(self, value: str):
             """Simulate setting the description"""
             self.desc = value
 
@@ -47,7 +50,7 @@ def test_set_sized_description_uses_default_width_when_no_two_line_extra():
     assert len(p.desc) <= 50
 
 
-def test_set_sized_description_respects_terminal_width(monkeypatch):
+def test_set_sized_description_respects_terminal_width(monkeypatch: MonkeyPatch):
     """Ensure set_sized_description respects terminal width and accounts for two line extra width"""
 
     class DummyPbar:
@@ -57,11 +60,17 @@ def test_set_sized_description_respects_terminal_width(monkeypatch):
             self.desc = None
             self._two_line_extra_width = 10
 
-        def set_description(self, value):
+        def set_description(self, value: str):
             """Simulate setting the description"""
             self.desc = value
 
-    monkeypatch.setattr(shutil, "get_terminal_size", lambda fallback: os.terminal_size((80, 24)))
+    def fake_terminal_size(fallback: Tuple[int, int] = (80, 24)) -> os.terminal_size:
+        """Simulate a terminal size of 80 columns and 24 rows, ignoring the fallback value"""
+        _ = fallback
+        return os.terminal_size((80, 24))
+
+    monkeypatch.setattr(shutil, "get_terminal_size", fake_terminal_size)
+
     p = DummyPbar()
     main.set_sized_description(p, "Desc", "/r/")
     assert p.desc is not None
@@ -69,27 +78,41 @@ def test_set_sized_description_respects_terminal_width(monkeypatch):
     assert len(p.desc) <= 80
 
 
-def test_create_progress_bars_returns_expected_bars_large_terminal(monkeypatch):
-    """Ensure create_progress_bars returns a single primary bar and no secondary bar when
-    terminal is large enough"""
-    monkeypatch.setattr(shutil, "get_terminal_size", lambda fallback: os.terminal_size((120, 24)))
+def test_create_progress_bars_returns_expected_bars_large_terminal(monkeypatch: MonkeyPatch):
+    """
+    Ensure create_progress_bars returns a single primary bar and no secondary bar when terminal
+    is large enough
+    """
+
+    def fake_terminal_size(fallback: Tuple[int, int] = (80, 24)) -> os.terminal_size:
+        """Simulate a terminal size of 120 columns and 24 rows, ignoring the fallback value"""
+        _ = fallback
+        return os.terminal_size((120, 24))
+
+    monkeypatch.setattr(shutil, "get_terminal_size", fake_terminal_size)
     primary, secondary = main.create_progress_bars(1, is_console=False)
     assert secondary is None
     assert primary is not None
 
 
-def test_create_progress_bars_returns_two_bars_small_terminal(monkeypatch):
+def test_create_progress_bars_returns_two_bars_small_terminal(monkeypatch: MonkeyPatch):
     """
     Ensure create_progress_bars returns both primary and secondary bars when terminal is small
     and is_console is True
     """
-    monkeypatch.setattr(shutil, "get_terminal_size", lambda fallback: os.terminal_size((80, 24)))
+
+    def fake_terminal_size(fallback: Tuple[int, int] = (80, 24)) -> os.terminal_size:
+        """Simulate a terminal size of 80 columns and 24 rows, ignoring the fallback value"""
+        _ = fallback
+        return os.terminal_size((80, 24))
+
+    monkeypatch.setattr(shutil, "get_terminal_size", fake_terminal_size)
     primary, secondary = main.create_progress_bars(1, is_console=True)
     assert primary is not None
     assert secondary is not None
 
 
-def test_extract_bash_array_parses_values(tmp_path):
+def test_extract_bash_array_parses_values(tmp_path: Path):
     """
     Ensure extract_bash_array correctly parses values from a bash array in a .env file, ignoring
     comments and whitespace
@@ -107,7 +130,9 @@ export CONSOLE_NAMES=(
     assert res == ["PS4", "PS5"]
 
 
-def test_get_crawling_downloading_mode_defaults_to_auto_when_not_specified(monkeypatch):
+def test_get_crawling_downloading_mode_defaults_to_auto_when_not_specified(
+    monkeypatch: MonkeyPatch
+):
     """
     Ensure get_crawling_downloading_mode returns AUTO when no command line arguments are provided
     """
@@ -117,23 +142,33 @@ def test_get_crawling_downloading_mode_defaults_to_auto_when_not_specified(monke
     assert cmodes[0] in (CrawlingMode.AUTO, CrawlingMode.NONE, CrawlingMode.AUTO)
 
 
-def test_setup_env_reads_env_and_sets_api_url(monkeypatch):
+def test_setup_env_reads_env_and_sets_api_url(monkeypatch: MonkeyPatch):
     """Ensure setup_env reads environment variables and sets API URL in LocalSSLContext"""
     monkeypatch.setenv("EMAIL", "e@example.com")
     monkeypatch.setenv("PASSWORD", "pw")
     monkeypatch.setenv("API_URL", "https://api.test/")
-    # stub arrays
+
+    def fake_extract_bash_array(path: Path, name: str) -> List[str]:
+        """
+        Simulate extracting a bash array from a .env file, returning predefined values based on
+        the name
+        """
+        _ = path
+        _ = name
+        return ["C1"] if name == "CONSOLE_NAMES" else ["/tmp"]
+
     monkeypatch.setattr(
         main, "extract_bash_array",
-        lambda path, name: ["C1"] if name == "CONSOLE_NAMES" else ["/tmp"]
+        fake_extract_bash_array
     )
 
     monkeypatch.setattr(main, "parser", argparse.ArgumentParser())
     monkeypatch.setattr(sys, "argv", ["prog"])
     # capture set_api_url
-    called = {}
+    called: Dict[str, str] = {}
 
-    def fake_set_api_url(url):
+    def fake_set_api_url(url: str):
+        """Simulate setting the API URL and capture the value for assertion"""
         called["url"] = url
 
     monkeypatch.setattr(main.LocalSSLContext, "set_api_url", fake_set_api_url)
@@ -164,17 +199,16 @@ def test_retrieve_local_consoles_creates_and_uses_remote():
             """Simulate fetching all consoles"""
             return self._all
 
-        def search(self, model, allow_multiple_results: bool = False):
+        def search(self, model: Console, allow_multiple_results: bool = False) -> List[Console]:
             """
             Simulate searching for a console by name, returning a list with a matching console if
             found
             """
             return [Console(id=1, name="C1")] if model.name == "C1" else []
 
-        def save(self, model):
+        def save(self, model: Console) -> Console:
             """Simulate saving a console"""
-            c = Console(id=2, name=model.name)
-            return c
+            return Console(id=2, name=model.name)
 
     controller = FakeController()
     # when create_new_consoles True, existing remote names should be returned
@@ -195,13 +229,13 @@ def test_handle_creating_savefile_respects_mode_and_save():
         configured to
         """
 
-        def __init__(self, ok=True, api_url: str = "", api_token: str = ""):
+        def __init__(self, ok: bool = True, api_url: str = "", api_token: str = ""):
             super().__init__(api_url, api_token)
             self.ok = ok
 
-        def save(self, model: Savefile):
+        def save(self, model: Savefile) -> Optional[Savefile]:
             """Simulate saving a savefile"""
-            return self.ok
+            return model if self.ok else None
 
     sf = Savefile(name="a.sav")
     # UPDATE should ignore
@@ -228,13 +262,13 @@ def test_handle_downloading_savefile_behaviour():
         A fake SavefileController for testing that simulates downloading a savefile and can be
         """
 
-        def __init__(self, ok=True, api_url: str = "", api_token: str = ""):
+        def __init__(self, ok: bool = True, api_url: str = "", api_token: str = ""):
             super().__init__(api_url, api_token)
             self.ok = ok
 
-        def get(self, resource_id: int, download_path: str | None = None):
+        def get(self, resource_id: int, download_path: Optional[str] = None) -> Optional[Savefile]:
             """Simulate getting a savefile by ID"""
-            return self.ok
+            return Savefile(id=resource_id, name="f.sav") if self.ok else None
 
     sf = Savefile(name="f.sav")
     sf.id = None
@@ -268,17 +302,17 @@ def test_handle_existing_savefile_upload_and_download():
         configured to return an existing savefile with specified modified time
         """
 
-        def __init__(self, exist, api_url: str = "", api_token: str = ""):
+        def __init__(self, exist: Savefile, api_url: str = "", api_token: str = ""):
             super().__init__(api_url, api_token)
             self._existing = exist
 
-        def get(self, resource_id: int, download_path: Optional[str] = None):
+        def get(self, resource_id: int, download_path: Optional[str] = None) -> Optional[Savefile]:
             """Simulate getting a savefile by ID"""
-            return self._existing
+            return self._existing if self._existing.id == resource_id else None
 
-        def update(self, model):
+        def update(self, model: Savefile) -> Optional[Savefile]:
             """Simulate updating a savefile"""
-            return True
+            return model
 
     existing = Savefile(id=10, name="n.sav")
     # set modified times
@@ -320,9 +354,9 @@ def test_process_savefile_routes_correctly():
         def __init__(self, api_url: str = "", api_token: str = ""):
             super().__init__(api_url, api_token)
 
-        def save(self, model):
+        def save(self, model: Savefile) -> Optional[Savefile]:
             """Simulate saving a savefile"""
-            return True
+            return model
 
     res = main.process_savefile(
         sf, SavefileAvailability.LOCAL, FakeSaveCtrl(), (CrawlingMode.NEW, CrawlingMode.NEW)
@@ -330,7 +364,7 @@ def test_process_savefile_routes_correctly():
     assert isinstance(res, ProcessingResult)
 
 
-def test_retrieve_local_remote_savefiles_detects_local_and_remote(tmp_path):
+def test_retrieve_local_remote_savefiles_detects_local_and_remote(tmp_path: Path):
     """
     Ensure retrieve_local_remote_savefiles correctly identifies savefiles that are present locally,
     remotely, or both, and returns the appropriate availability status
@@ -357,7 +391,9 @@ def test_retrieve_local_remote_savefiles_detects_local_and_remote(tmp_path):
             super().__init__(api_url, api_token)
             self.raw = None
 
-        def search(self, model, allow_multiple_results=True, raw=False):
+        def search(
+            self, model: Savefile, allow_multiple_results: bool = True, raw: bool = False
+        ) -> List[Savefile]:
             """Simulate searching for a savefile"""
             self.raw = raw
             return [remote]
@@ -382,7 +418,7 @@ def test_update_progress_bars_updates_or_closes():
             self.updated = 0
             self.closed = False
 
-        def update(self, n=1):
+        def update(self, n: int = 1):
             """Simulate updating the progress bar"""
             self.updated += n
 
@@ -398,15 +434,15 @@ def test_update_progress_bars_updates_or_closes():
     assert a.closed and b.closed
 
 
-def test_log_savefile_stats_invokes_logger(monkeypatch):
+def test_log_savefile_stats_invokes_logger(monkeypatch: MonkeyPatch):
     """Ensure log_savefile_stats invokes the logger to log information about the savefile stats"""
-    messages = {"info": []}
+    messages: Dict[str, List[str]] = {"info": []}
 
     class FakeLogger:
         """A fake logger for testing that captures info messages"""
 
         @staticmethod
-        def log_info(msg):
+        def log_info(msg: str):
             """Simulate logging an info message"""
             messages["info"].append(msg)
 
@@ -417,7 +453,7 @@ def test_log_savefile_stats_invokes_logger(monkeypatch):
     assert messages["info"]
 
 
-def test_process_console_savefiles_uses_process_savefile(monkeypatch):
+def test_process_console_savefiles_uses_process_savefile(monkeypatch: MonkeyPatch):
     """
     Ensure process_console_savefiles uses process_savefile to process each savefile and aggregates
     """
@@ -425,12 +461,38 @@ def test_process_console_savefiles_uses_process_savefile(monkeypatch):
     # stub retrieve_local_remote_savefiles to return a single savefile
     sf = Savefile(name="s.sav", rel_path="/")
     sf.console = c
+
+    def fake_retrieve_local_remote_savefiles(console: Console, ctrl: SavefileController) -> Dict[
+        Savefile, SavefileAvailability]:
+        """
+        Simulate retrieving local and remote savefiles, returning a single savefile with LOCAL
+        availability
+        """
+        _ = console
+        _ = ctrl
+        return {sf: SavefileAvailability.LOCAL}
+
     monkeypatch.setattr(
         main, "retrieve_local_remote_savefiles",
-        lambda console, ctrl: {sf: SavefileAvailability.LOCAL}
+        fake_retrieve_local_remote_savefiles
     )
+
+    def fake_process_savefiles(
+        savefile: Savefile, availability: SavefileAvailability, ctrl: SavefileController,
+        modes: Tuple[CrawlingMode, CrawlingMode]
+    ) -> ProcessingResult:
+        """
+        Simulate processing savefiles for a console, returning a result of CREATED for the single
+        savefile
+        """
+        _ = savefile
+        _ = availability
+        _ = ctrl
+        _ = modes
+        return ProcessingResult.CREATED
+
     monkeypatch.setattr(
-        main, "process_savefile", lambda s, a, ctrl, modes: ProcessingResult.CREATED
+        main, "process_savefile", fake_process_savefiles
     )
 
     class DummySaveCtrl(SavefileController):
@@ -444,25 +506,25 @@ def test_process_console_savefiles_uses_process_savefile(monkeypatch):
     assert res[ProcessingResult.CREATED.value] == 1
 
 
-def test_print_results_logs_summary(monkeypatch):
+def test_print_results_logs_summary(monkeypatch: MonkeyPatch):
     """Ensure print_results logs a summary of the processing results using the logger"""
-    logs = {"info": [], "error": [], "success": []}
+    logs: Dict[str, List[str]] = {"info": [], "error": [], "success": []}
 
     class FakeLogger:
         """A fake logger for testing that captures info, error, and success messages"""
 
         @staticmethod
-        def log_info(msg):
+        def log_info(msg: str):
             """Simulate logging an info message"""
             logs["info"].append(msg)
 
         @staticmethod
-        def log_error(msg):
+        def log_error(msg: str):
             """Simulate logging an error message"""
             logs["error"].append(msg)
 
         @staticmethod
-        def log_success(msg):
+        def log_success(msg: str):
             """Simulate logging a success message"""
             logs["success"].append(msg)
 
