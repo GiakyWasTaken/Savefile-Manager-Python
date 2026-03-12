@@ -7,7 +7,10 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BufferedReader
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
+
+# Recursive JSON-like type for annotations
+JSONType = Union[str, int, float, bool, None, Dict[str, 'JSONType'], List['JSONType']]
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.000000Z"
 
@@ -34,7 +37,7 @@ class Entity:
         return self._created_at.strftime(DATE_FORMAT) if self._created_at else ""
 
     @created_at.setter
-    def created_at(self, value: datetime) -> None:
+    def created_at(self, value: Union[datetime, str, float, int]) -> None:
         """
         Set the creation timestamp of the entity
 
@@ -73,22 +76,24 @@ class Entity:
         else:
             self._modified_at = value
 
-    def to_json(self) -> Dict[str, object]:
+    def to_json(self) -> Dict[str, JSONType]:
         """
         Convert the entity to a JSON-serializable dictionary, including properties
 
         Returns:
             Dict: JSON representation of the entity
         """
-        result: Dict[str, object] = {}
+        result: Dict[str, JSONType] = {}
         result.update(self._get_instance_vars())
         result.update(self._get_properties(result))
 
-        def _recurse_value(val):
+        def _recurse_value(
+            val: Union[Entity, Dict[str, JSONType], List[JSONType], JSONType]
+        ) -> JSONType:
             if isinstance(val, Entity):
                 return val.to_json()
             if isinstance(val, dict):
-                return {k: _recurse_value(v) for k, v in val.items()}
+                return {str(k): _recurse_value(v) for k, v in val.items()}
             if isinstance(val, list):
                 return [_recurse_value(x) for x in val]
             return val
@@ -97,11 +102,11 @@ class Entity:
             result[key] = _recurse_value(value)
         return result
 
-    def _get_instance_vars(self) -> Dict[str, object]:
+    def _get_instance_vars(self) -> Dict[str, JSONType]:
         """
         Helper to get instance variables (excluding private ones) for JSON serialization
         """
-        instance_vars: Dict[str, object] = {}
+        instance_vars: Dict[str, JSONType] = {}
         for key, value in self.__dict__.items():
             if not key.startswith("_") and value is not None:
                 instance_vars[key] = (
@@ -109,11 +114,11 @@ class Entity:
                 )
         return instance_vars
 
-    def _get_properties(self, existing: Dict[str, object]) -> Dict[str, object]:
+    def _get_properties(self, existing: Dict[str, JSONType]) -> Dict[str, JSONType]:
         """
         Helper to get property values for JSON serialization, skipping those already in existing
         """
-        props: Dict[str, object] = {}
+        props: Dict[str, JSONType] = {}
         for attr in dir(self.__class__):
             prop = getattr(self.__class__, attr)
             if isinstance(prop, property) and attr not in existing:
@@ -124,7 +129,7 @@ class Entity:
                     )
         return props
 
-    def from_json(self, data: Dict[str, object]) -> None:
+    def from_json(self, data: Dict[str, JSONType]) -> None:
         """
         Populate the entity's attributes from a JSON dictionary
 
@@ -133,7 +138,7 @@ class Entity:
         """
         for key, value in data.items():
             if hasattr(self.__class__, key) and isinstance(
-                    getattr(self.__class__, key), property
+                getattr(self.__class__, key), property
             ):
                 setattr(self, key, value)
             elif hasattr(self, key):
@@ -250,7 +255,7 @@ class Savefile(Entity):
         return self._console if self._console else None
 
     @console.setter
-    def console(self, value: Console) -> None:
+    def console(self, value: Union[Console, Dict[str, JSONType]]) -> None:
         """
         Set the console attribute of the savefile
 
@@ -259,11 +264,9 @@ class Savefile(Entity):
         """
         if isinstance(value, Console):
             console = value
-        elif isinstance(value, Dict):
+        else:
             console = Console()
             console.from_json(value)
-        else:
-            raise ValueError("Invalid type for console attribute")
 
         self._console = console
         self.id_console = console.id
@@ -315,7 +318,7 @@ class Savefile(Entity):
         if not isinstance(other, Savefile):
             return False
         return self.id == other.id or (
-                self.name == other.name
-                and self.rel_path == other.rel_path
-                and self.id_console == other.id_console
+            self.name == other.name
+            and self.rel_path == other.rel_path
+            and self.id_console == other.id_console
         )

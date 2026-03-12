@@ -6,7 +6,7 @@ Provides functionality to interact with savefile resources via API
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, override
+from typing import Any, Dict, Optional, override
 
 from controller_base import ControllerBase
 from local_ssl_context import LocalSSLContext
@@ -49,7 +49,7 @@ class SavefileController(ControllerBase[Savefile]):
     @override
     def get(
         self, resource_id: int, download_path: Optional[str] = None
-    ) -> Union[Savefile, None]:
+    ) -> Optional[Savefile]:
         savefile_model = super().get(resource_id)
 
         if download_path is None or savefile_model is None:
@@ -93,7 +93,7 @@ class SavefileController(ControllerBase[Savefile]):
         if savefile_model.modified_at:
             # Normalize trailing 'Z' to '+00:00' so fromisoformat accepts it
             s = savefile_model.modified_at
-            if isinstance(s, str) and s.endswith("Z"):
+            if s.endswith("Z"):
                 s = s[:-1] + "+00:00"
 
             modified_time = datetime.fromisoformat(s).timestamp()
@@ -105,7 +105,7 @@ class SavefileController(ControllerBase[Savefile]):
         return savefile_model
 
     @override
-    def save(self, model: Savefile) -> Union[Savefile, None]:
+    def save(self, model: Savefile) -> Optional[Savefile]:
         url = f"{self.api_url}/{self.resource}"
         headers = self.get_headers()
 
@@ -122,7 +122,7 @@ class SavefileController(ControllerBase[Savefile]):
         return self._log_and_handle_response(response, "POST", url)
 
     @override
-    def update(self, model: Savefile) -> Union[Savefile, None]:
+    def update(self, model: Savefile) -> Optional[Savefile]:
         url = f"{self.api_url}/{self.resource}/{model.id}"
         headers = self.get_headers()
 

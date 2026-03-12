@@ -1,2 +1,5 @@
 [MASTER]
 ignore=.venv
+
+[MESSAGES CONTROL]
+disable=R0903

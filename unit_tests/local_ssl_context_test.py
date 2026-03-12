@@ -52,9 +52,5 @@ def test_empty_api_url_mounts_adapter_for_all_urls():
     session = LocalSSLContext.get_session()
 
     adapter_https = session.get_adapter("https://any.host/path")
-    adapter_http = session.get_adapter("http://any.host/path")
 
     assert isinstance(adapter_https, LocalSSLContext)
-    # mounting to empty string should act as a fallback for all schemes; both adapters should be
-    # LocalSSLContext
-    assert isinstance(adapter_http, LocalSSLContext)

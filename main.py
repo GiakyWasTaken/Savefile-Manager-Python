@@ -187,7 +187,7 @@ def set_sized_description(pbar: Any, text: str, rel_path: str = "") -> None:
         return
 
     try:
-        term_cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+        term_cols = shutil.get_terminal_size((80, 24)).columns
     except AttributeError:
         term_cols = 80
 
@@ -304,12 +304,12 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
     return values
 
 
-def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, CrawlingMode]]:
+def setup_env() -> Tuple[list[str], list[str], str, Tuple[CrawlingMode, CrawlingMode]]:
     """
     Load environment variables from the .env file and return necessary configurations
 
     Returns:
-        tuple: Tuple containing console names, saves paths, API URL and crawling modes
+        Tuple: Tuple containing console names, saves paths, API URL and crawling modes
     """
 
     api_url = os.getenv("API_URL", "").rstrip("/")
@@ -331,7 +331,7 @@ def setup_env() -> tuple[list[str], list[str], str, tuple[CrawlingMode, Crawling
 
 def get_controllers(
     api_url: str, token: str
-) -> tuple[ConsoleController, SavefileController]:
+) -> Tuple[ConsoleController, SavefileController]:
     """
     Initialize and return ConsoleController and SavefileController instances
 
@@ -340,7 +340,7 @@ def get_controllers(
         token (str): Authentication token for the API
 
     Returns:
-        tuple: Tuple containing ConsoleController and SavefileController instances
+        Tuple: Tuple containing ConsoleController and SavefileController instances
     """
 
     console_controller = ConsoleController(api_url=api_url, api_token=token)
@@ -350,12 +350,12 @@ def get_controllers(
     return console_controller, savefile_controller
 
 
-def get_crawling_downloading_mode() -> tuple[CrawlingMode, CrawlingMode]:
+def get_crawling_downloading_mode() -> Tuple[CrawlingMode, CrawlingMode]:
     """
     Parse command line arguments to get crawling and downloading modes
 
     Returns:
-        tuple[CrawlingMode, CrawlingMode]: Tuple containing crawling mode and downloading mode
+        Tuple[CrawlingMode, CrawlingMode]: Tuple containing crawling mode and downloading mode
     """
 
     parser.add_argument(
@@ -498,7 +498,7 @@ def handle_downloading_savefile(
     if savefile.id is None:
         return ProcessingResult.FAILED_DOWNLOAD
 
-    result = savefile_controller.get(savefile.id, download_path=savefile.abs_path)
+    result = savefile_controller.get(savefile.id, savefile.abs_path)
 
     return ProcessingResult.DOWNLOADED if result else ProcessingResult.FAILED_DOWNLOAD
 
@@ -506,7 +506,7 @@ def handle_downloading_savefile(
 def handle_existing_savefile(
     savefile: Savefile,
     savefile_controller: SavefileController,
-    crawling_modes: tuple[CrawlingMode, CrawlingMode],
+    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> ProcessingResult:
     """
     Handle a savefile that already exists in the database
@@ -514,7 +514,7 @@ def handle_existing_savefile(
     Args:
         savefile (Savefile): Savefile object to handle
         savefile_controller (SavefileController): Controller for savefile operations
-        crawling_modes (tuple[CrawlingMode, CrawlingMode]): Modes for crawling the savefile
+        crawling_modes (Tuple[CrawlingMode, CrawlingMode]): Modes for crawling the savefile
 
     Returns:
         str: Result of the savefile handling
@@ -583,7 +583,7 @@ def process_savefile(
     savefile: Savefile,
     availability: SavefileAvailability,
     savefile_controller: SavefileController,
-    crawling_modes: tuple[CrawlingMode, CrawlingMode],
+    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> ProcessingResult:
     """
     Process a savefile by checking if it exists, and handling it based on the crawling mode
@@ -592,7 +592,7 @@ def process_savefile(
         savefile (Savefile): Savefile object to process
         availability (SavefileAvailability): Availability of the savefile
         savefile_controller (SavefileController): Controller for savefile operations
-        crawling_modes (tuple[CrawlingMode, CrawlingMode]): Modes for crawling the savefile
+        crawling_modes (Tuple[CrawlingMode, CrawlingMode]): Modes for crawling the savefile
 
     Returns:
         str: Result of the savefile processing
@@ -628,10 +628,7 @@ def retrieve_local_remote_savefiles(
 
     # Get remote savefiles for this console
     remote_savefiles = (
-        savefile_controller.search(
-            Savefile(id_console=console.id), allow_multiple_results=True
-        )
-        or []
+        savefile_controller.search(Savefile(id_console=console.id), True) or []
     )
 
     # Set the console for each remote savefile
@@ -719,14 +716,14 @@ def log_savefile_stats(
 def process_console_savefiles(
     console: Console,
     savefile_controller: SavefileController,
-    crawling_modes: tuple[CrawlingMode, CrawlingMode],
+    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> list[int]:
     """Process all savefiles for a single console
 
     Args:
         console (Console): The console to process savefiles for
         savefile_controller (SavefileController): Controller for savefile operations
-        crawling_modes (tuple[CrawlingMode, CrawlingMode]): The crawling modes to use
+        crawling_modes (Tuple[CrawlingMode, CrawlingMode]): The crawling modes to use
 
     Returns:
         list[int]: The results of processing savefiles
@@ -759,7 +756,7 @@ def crawl_savefiles(
     saves_paths: list[str],
     console_controller: ConsoleController,
     savefile_controller: SavefileController,
-    crawling_modes: tuple[CrawlingMode, CrawlingMode],
+    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> dict[Console, list[int]]:
     """
     Crawl savefiles based on the provided parameters
@@ -769,7 +766,7 @@ def crawl_savefiles(
         saves_paths (list[str]): List of local savefile paths
         console_controller (ConsoleController): Controller for console operations
         savefile_controller (SavefileController): Controller for savefile operations
-        crawling_modes (tuple[CrawlingMode, CrawlingMode]): Savefile crawling and downloading modes
+        crawling_modes (Tuple[CrawlingMode, CrawlingMode]): Savefile crawling and downloading modes
 
     Returns:
         dict[Console, list[int]]: Dictionary mapping consoles to their processing results

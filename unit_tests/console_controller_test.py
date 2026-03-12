@@ -22,11 +22,6 @@ class MockResponse:
         """Simulate the .json() method of a real HTTP response object"""
         return self._json
 
-    def raise_for_status(self):
-        """Simulate requests.Response.raise_for_status; raise on 4xx/5xx codes"""
-        if 400 <= self.status_code < 600:
-            raise RuntimeError(f"HTTP {self.status_code}: {self.text}")
-
 
 class MockSession:
     """A mock session to simulate HTTP requests and responses for testing the ConsoleController"""
