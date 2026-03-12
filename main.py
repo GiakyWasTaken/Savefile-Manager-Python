@@ -498,7 +498,7 @@ def handle_downloading_savefile(
     if savefile.id is None:
         return ProcessingResult.FAILED_DOWNLOAD
 
-    result = savefile_controller.get(savefile.id, download_path=savefile.abs_path)
+    result = savefile_controller.get(savefile.id, savefile.abs_path)
 
     return ProcessingResult.DOWNLOADED if result else ProcessingResult.FAILED_DOWNLOAD
 
@@ -628,10 +628,7 @@ def retrieve_local_remote_savefiles(
 
     # Get remote savefiles for this console
     remote_savefiles = (
-        savefile_controller.search(
-            Savefile(id_console=console.id), allow_multiple_results=True
-        )
-        or []
+        savefile_controller.search(Savefile(id_console=console.id), True) or []
     )
 
     # Set the console for each remote savefile

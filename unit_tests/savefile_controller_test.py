@@ -28,11 +28,6 @@ class MockResponse:
         """Simulate the .json() method of a real HTTP response object"""
         return self._json
 
-    def raise_for_status(self):
-        """Simulate requests.Response.raise_for_status; raise on 4xx/5xx codes"""
-        if 400 <= self.status_code < 600:
-            raise RuntimeError(f"HTTP {self.status_code}: {self.text}")
-
     def iter_content(self, chunk_size=8192):
         """
         Simulate the .iter_content() method of a real HTTP response object for streaming downloads
@@ -163,6 +158,7 @@ def test_get_downloads_file_and_sets_mtime(monkeypatch, tmp_path):
     call_count = {"n": 0}
 
     def responder():
+        """Simulate sequential GET responses: first for metadata, then for file content"""
         call_count["n"] += 1
         if call_count["n"] == 1:
             return MockResponse(200, json_data=api_obj, text=str(api_obj))

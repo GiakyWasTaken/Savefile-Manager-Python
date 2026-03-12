@@ -34,7 +34,7 @@ class Entity:
         return self._created_at.strftime(DATE_FORMAT) if self._created_at else ""
 
     @created_at.setter
-    def created_at(self, value: datetime) -> None:
+    def created_at(self, value: Union[datetime, str, float, int]) -> None:
         """
         Set the creation timestamp of the entity
 
@@ -133,7 +133,7 @@ class Entity:
         """
         for key, value in data.items():
             if hasattr(self.__class__, key) and isinstance(
-                    getattr(self.__class__, key), property
+                getattr(self.__class__, key), property
             ):
                 setattr(self, key, value)
             elif hasattr(self, key):
@@ -250,7 +250,7 @@ class Savefile(Entity):
         return self._console if self._console else None
 
     @console.setter
-    def console(self, value: Console) -> None:
+    def console(self, value: Union[Console, Dict]) -> None:
         """
         Set the console attribute of the savefile
 
@@ -262,8 +262,6 @@ class Savefile(Entity):
         elif isinstance(value, Dict):
             console = Console()
             console.from_json(value)
-        else:
-            raise ValueError("Invalid type for console attribute")
 
         self._console = console
         self.id_console = console.id
@@ -315,7 +313,7 @@ class Savefile(Entity):
         if not isinstance(other, Savefile):
             return False
         return self.id == other.id or (
-                self.name == other.name
-                and self.rel_path == other.rel_path
-                and self.id_console == other.id_console
+            self.name == other.name
+            and self.rel_path == other.rel_path
+            and self.id_console == other.id_console
         )

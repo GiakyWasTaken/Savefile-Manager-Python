@@ -1,6 +1,7 @@
 """Unit tests for the Models module"""
 
 import os
+from typing import Dict
 
 from models import Console, Savefile
 
@@ -40,7 +41,7 @@ def test_model_from_json_fails():
     Test the from_json method of the Model class with invalid data
     """
 
-    json_data = {
+    json_data: Dict[str, object] = {
         "id": "invalid_id",
         "name": CONSOLE_NAME,
         "created_at": "invalid_date",
