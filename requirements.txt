@@ -1,7 +1,8 @@
-requests
-responses
-python-dotenv
-colorama
-tqdm
-urllib3
-pytest
+requests>=2.33.0
+responses>=0.26.0
+python-dotenv>=1.2.2
+colorama>=0.4.6
+tqdm>=4.67.3
+urllib3>=2.6.3
+pytest>=9.0.3
+Pygments>=2.20.0
