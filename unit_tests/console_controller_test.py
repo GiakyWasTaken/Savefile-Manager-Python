@@ -18,7 +18,7 @@ class MockResponse:
     """A simple mock response object to simulate HTTP responses in tests"""
 
     def __init__(
-        self, status_code: int, json_data: Optional[List[Dict[str, object]]] = None, text: str = ""
+            self, status_code: int, json_data: Optional[List[Dict[str, object]]] = None, text: str = ""
     ):
         self.status_code = status_code
         self._json = json_data
@@ -41,16 +41,19 @@ class MockSession:
         return self._map.get((method, url), MockResponse(500, json_data=None, text="error"))
 
     def get(
-        self, url: str, headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
+            self, url: str, headers: Optional[Dict[str, str]] = None,
+            params: Optional[Dict[str, object]] = None,
+            timeout: Optional[int] = None
     ) -> MockResponse:
         """Simulate a GET request and return the corresponding MockResponse"""
         _ = headers
+        _ = params
         _ = timeout
         return self._respond("GET", url)
 
     def post(
-        self, url: str, json: Optional[Dict[str, object]] = None,
-        headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
+            self, url: str, json: Optional[Dict[str, object]] = None,
+            headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
     ) -> MockResponse:
         """Simulate a POST request and return the corresponding MockResponse"""
         _ = json
@@ -59,8 +62,8 @@ class MockSession:
         return self._respond("POST", url)
 
     def put(
-        self, url: str, json: Optional[Dict[str, object]] = None,
-        headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
+            self, url: str, json: Optional[Dict[str, object]] = None,
+            headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
     ) -> MockResponse:
         """Simulate a PUT request and return the corresponding MockResponse"""
         _ = json
@@ -69,8 +72,8 @@ class MockSession:
         return self._respond("PUT", url)
 
     def delete(
-        self, url: str,
-        headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
+            self, url: str,
+            headers: Optional[Dict[str, str]] = None, timeout: Optional[int] = None
     ) -> MockResponse:
         """Simulate a DELETE request and return the corresponding MockResponse"""
         _ = headers
@@ -79,7 +82,7 @@ class MockSession:
 
 
 def create_controller_with_session(
-    monkeypatch: MonkeyPatch, responses_map: Dict[Tuple[str, str], MockResponse]
+        monkeypatch: MonkeyPatch, responses_map: Dict[Tuple[str, str], MockResponse]
 ) -> ConsoleController:
     """
     Create a ConsoleController using a mocked LocalSSLContext session

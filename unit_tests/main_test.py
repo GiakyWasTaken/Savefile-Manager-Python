@@ -155,7 +155,7 @@ def test_setup_env_reads_env_and_sets_api_url(monkeypatch: MonkeyPatch):
         """
         _ = path
         _ = name
-        return ["C1"] if name == "CONSOLE_NAMES" else ["/tmp"]
+        return ["C1"] if name == "CONSOLE_NAMES" else ["/opt/savefiles"]
 
     monkeypatch.setattr(
         main, "extract_bash_array",
@@ -174,7 +174,7 @@ def test_setup_env_reads_env_and_sets_api_url(monkeypatch: MonkeyPatch):
     monkeypatch.setattr(main.LocalSSLContext, "set_api_url", fake_set_api_url)
     consoles, saves_paths, api_url, _ = main.setup_env()
     assert consoles == ["C1"]
-    assert saves_paths == ["/tmp"]
+    assert saves_paths == ["/opt/savefiles"]
     assert api_url == "https://api.test"
     assert called.get("url") == "https://api.test"
 

@@ -100,15 +100,13 @@ class ControllerBase(ABC, Generic[T]):
         Returns:
             Optional[Union[List[T], T]]: Model instance or list of model instances
         """
-        model = None
-
         if self.model_class:
-            if isinstance(data, Dict):
+            if isinstance(data, dict):
                 instance = self.model_class()
                 instance.from_json(self.mapper(data))
 
                 model = instance
-            elif isinstance(data, List):
+            else:
                 result: List[T] = []
 
                 for item in data:
@@ -192,14 +190,14 @@ class ControllerBase(ABC, Generic[T]):
         return result
 
     def get_all(
-            self, records: Optional[int] = None, offset: Optional[int] = None
+            self, records: int = 0, offset: int = 0
     ) -> Optional[List[T]]:
         """
         Retrieve all resources of the specified type
 
         Args:
-            records (Optional[int]): Number of records to retrieve
-            offset (Optional[int]): Offset for pagination
+            records (int): Number of records to retrieve
+            offset (int): Offset for pagination
 
         Returns:
             Union[List[T], T, None]: List of all resources as model instances, or None if not found
@@ -207,17 +205,15 @@ class ControllerBase(ABC, Generic[T]):
         url = f"{self.api_url}/{self.resource}"
         headers = self.get_headers()
 
-        params: Dict[str, int] = {}
-
-        if records is not None:
-            params["records"] = records
-
-        if offset is not None:
-            params["offset"] = offset
+        params: Dict[str, int] = {
+            "records": records,
+            "offset": offset
+        }
 
         response = LocalSSLContext.get_session().get(
             url, headers=headers, params=params, timeout=10
         )
+
         result: Optional[List[T]] = None
 
         self.logger.log_debug(
@@ -231,7 +227,7 @@ class ControllerBase(ABC, Generic[T]):
                 f"{' starting at ' + str(offset) if offset else ''}"
             )
 
-            converted = self.convert_to_model(response.json()) if response.json() else []
+            converted = self.convert_to_model(response.json())
 
             if isinstance(converted, List):
                 result = converted

@@ -21,8 +21,8 @@ class MockResponse:
     """A simple mock response object to simulate HTTP responses in tests"""
 
     def __init__(
-        self, status_code: int, json_data: Optional[Dict[str, object]], text: str = "",
-        content: bytes = b""
+            self, status_code: int, json_data: Optional[Dict[str, object]], text: str = "",
+            content: bytes = b""
     ):
         self.status_code = status_code
         self._json = json_data
@@ -58,8 +58,8 @@ class MockSession:
         return self._map.get((method, url), MockResponse(500, json_data=None, text="error"))
 
     def get(
-        self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
-        timeout: Optional[int] = None
+            self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
+            timeout: Optional[int] = None
     ) -> MockResponse:
         """Simulate a GET request and return the corresponding MockResponse"""
         self.headers = headers
@@ -94,8 +94,8 @@ class MockSession:
 
 
 def create_controller_with_session(
-    monkeypatch: MonkeyPatch
-    , responses_map: Dict[Tuple[str, str], MockResponse]
+        monkeypatch: MonkeyPatch
+        , responses_map: Dict[Tuple[str, str], MockResponse]
 ) -> Tuple[SavefileController, MockSession]:
     """
     Create a SavefileController wired to a mocked HTTP session
@@ -185,8 +185,8 @@ def test_get_downloads_file_and_sets_mtime(monkeypatch: MonkeyPatch, tmp_path: P
             super().__init__({})
 
         def get(
-            self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
-            timeout: Optional[int] = None
+                self, url: str, headers: Optional[Dict[str, str]] = None, stream: bool = False,
+                timeout: Optional[int] = None
         ):
             return responder()
 
@@ -303,7 +303,7 @@ def test_update_uses_method_override_and_handles_not_found(monkeypatch: MonkeyPa
     # Verify that controller used POST with _method=PUT in data
     assert mock_session.last_data is not None
     assert ("_method" in mock_session.last_data) and (
-        mock_session.last_data["_method"] == "PUT")
+            mock_session.last_data["_method"] == "PUT")
 
     # Not found case
     responses_nf = {

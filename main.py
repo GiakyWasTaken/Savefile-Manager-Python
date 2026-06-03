@@ -796,7 +796,7 @@ def crawl_savefiles(
         logger.log_info(f'Processing console "{console.name}" with ID {console.id}')
         console.saves_path = saves_paths[index]
 
-        if not isinstance(console.saves_path, str) or not os.path.exists(console.saves_path):
+        if not console.saves_path or not os.path.exists(console.saves_path):
             logger.log_warning(f"Non existing path at {console.saves_path}")
 
             results[console] = [1] + [0] * 8

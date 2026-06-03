@@ -50,12 +50,13 @@ class SavefileController(ControllerBase[Savefile]):
     def get(
             self, resource_id: int, download_path: Optional[str] = None
     ) -> Optional[Savefile]:
-        entity_model = super().get(resource_id)
+        savefile_model: Optional[Savefile] = super().get(resource_id)
 
-        if download_path is None or entity_model is None or not isinstance(entity_model, Savefile):
+        if savefile_model is None:
             return None
 
-        savefile_model = entity_model
+        if download_path is None:
+            return savefile_model
 
         # Make a request to download the file
         url = f"{self.api_url}/{self.resource}/{resource_id}"
@@ -116,7 +117,7 @@ class SavefileController(ControllerBase[Savefile]):
         if model.savefile:
             files: Mapping[str, Any] = {"savefile": model.savefile}
         else:
-            files = None
+            files = {}
 
         response = LocalSSLContext.get_session().post(
             url,
@@ -141,7 +142,7 @@ class SavefileController(ControllerBase[Savefile]):
         if model.savefile:
             files: Mapping[str, Any] = {"savefile": model.savefile}
         else:
-            files = None
+            files = {}
 
         response = LocalSSLContext.get_session().post(
             url,
