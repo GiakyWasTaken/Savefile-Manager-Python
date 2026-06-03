@@ -8,7 +8,7 @@ import os
 import re
 import shutil
 from enum import Enum
-from typing import Dict, List, Optional, Any, Tuple, NoReturn
+from typing import Dict, List, Optional, Any, Tuple
 
 import dotenv
 from tqdm import tqdm
@@ -196,7 +196,10 @@ def set_sized_description(pbar: Any, text: str, rel_path: str = "") -> None:
     pbar.set_description(fit_text_to_width(max_len, text, rel_path))
 
 
-def create_progress_bars(total: int, is_console: bool) -> Tuple[tqdm[NoReturn], Optional[tqdm[NoReturn]]]:
+def create_progress_bars(
+        total: int,
+        is_console: bool
+) -> Tuple[Any, Optional[Any]]:
     """Create progress bars for console or savefile processing
 
     Args:
@@ -204,7 +207,7 @@ def create_progress_bars(total: int, is_console: bool) -> Tuple[tqdm[NoReturn], 
         is_console (bool): Whether the progress bars are for console or savefile processing
 
     Returns:
-        Tuple[tqdm[NoReturn], Optional[tqdm[NoReturn]]]: The primary and secondary progress bars
+        Tuple[Any, Optional[Any]]: The primary and secondary progress bars
     """
 
     stats = "{n_fmt:>3}/{total_fmt:>3}[{elapsed:>5}<{remaining:>5},{rate_fmt:>15}]"
@@ -669,13 +672,15 @@ def retrieve_local_remote_savefiles(
 
 
 def update_progress_bars(
-        primary_bar: tqdm[NoReturn], secondary_bar: Optional[tqdm[NoReturn]], do_close: bool = False
+        primary_bar: Any,
+        secondary_bar: Optional[Any],
+        do_close: bool = False
 ) -> None:
     """Update both primary and secondary progress bars
 
     Args:
-        primary_bar (tqdm[NoReturn]): The primary progress bar to update
-        secondary_bar (Optional[tqdm[NoReturn]]): The secondary progress bar to update
+        primary_bar (Any): The primary progress bar to update
+        secondary_bar (Optional[Any]): The secondary progress bar to update
         do_close (bool, optional): Whether to close the progress bars. Defaults to False.
     """
 

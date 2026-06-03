@@ -18,7 +18,10 @@ class MockResponse:
     """A simple mock response object to simulate HTTP responses in tests"""
 
     def __init__(
-            self, status_code: int, json_data: Optional[List[Dict[str, object]]] = None, text: str = ""
+            self,
+            status_code: int,
+            json_data: Optional[List[Dict[str, object]]] = None,
+            text: str = ""
     ):
         self.status_code = status_code
         self._json = json_data

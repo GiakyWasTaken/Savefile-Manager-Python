@@ -195,7 +195,11 @@ def test_retrieve_local_consoles_creates_and_uses_remote():
             super().__init__(api_url, api_token)
             self._all = [Console(id=1, name="C1")]
 
-        def get_all(self, records: Optional[int] = None, offset: Optional[int] = None) -> List[Console]:
+        def get_all(
+                self,
+                records: Optional[int] = None,
+                offset: Optional[int] = None
+        ) -> List[Console]:
             """Simulate fetching all consoles"""
             return self._all
 
