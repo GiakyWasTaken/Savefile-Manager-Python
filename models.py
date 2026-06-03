@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BufferedReader
-from typing import Dict, Optional, Union, List
+from typing import Dict, Optional, Union, List, cast
 
 # Recursive JSON-like type for annotations
 JSONType = Union[str, int, float, bool, None, Dict[str, 'JSONType'], List['JSONType']]
@@ -88,15 +88,15 @@ class Entity:
         result.update(self._get_properties(result))
 
         def _recurse_value(
-            val: Union[Entity, Dict[str, JSONType], List[JSONType], JSONType]
+                val: Union[Entity, Dict[str, JSONType], List[JSONType], JSONType]
         ) -> JSONType:
             if isinstance(val, Entity):
                 return val.to_json()
-            if isinstance(val, dict):
+            if isinstance(val, Dict):
                 return {str(k): _recurse_value(v) for k, v in val.items()}
-            if isinstance(val, list):
+            if isinstance(val, List):
                 return [_recurse_value(x) for x in val]
-            return val
+            return cast(JSONType, val)
 
         for key, value in list(result.items()):
             result[key] = _recurse_value(value)
@@ -138,7 +138,7 @@ class Entity:
         """
         for key, value in data.items():
             if hasattr(self.__class__, key) and isinstance(
-                getattr(self.__class__, key), property
+                    getattr(self.__class__, key), property
             ):
                 setattr(self, key, value)
             elif hasattr(self, key):
@@ -206,9 +206,12 @@ class Savefile(Entity):
         Returns:
             str: Absolute path of the savefile
         """
-        if self.console and self.console.saves_path and self.rel_path and self.name:
+        console = self.console
+
+        if console is not None and console.saves_path and self.rel_path and self.name:
             rel_path = self.rel_path.lstrip("/") if self.rel_path else ""
-            return os.path.join(self.console.saves_path, rel_path, self.name)
+            return os.path.join(console.saves_path, rel_path, self.name)
+
         return None
 
     @property
@@ -222,9 +225,11 @@ class Savefile(Entity):
         if super().modified_at:
             return super().modified_at
 
-        if self.abs_path and os.path.exists(self.abs_path):
+        abs_path = self.abs_path
+
+        if abs_path is not None and os.path.exists(abs_path):
             return datetime.fromtimestamp(
-                os.path.getmtime(self.abs_path), timezone.utc
+                os.path.getmtime(abs_path), timezone.utc
             ).strftime(DATE_FORMAT)
 
         return ""
@@ -279,8 +284,10 @@ class Savefile(Entity):
         Returns:
             BufferedReader: File-like object containing the savefile content
         """
-        if self.abs_path and os.path.exists(self.abs_path):
-            return open(self.abs_path, "rb")
+        abs_path = self.abs_path
+
+        if abs_path and os.path.exists(abs_path):
+            return open(abs_path, "rb")
 
         return None
 
@@ -292,8 +299,10 @@ class Savefile(Entity):
         Args:
             content (bytes): The content to write to the savefile
         """
-        if self.abs_path and os.path.exists(self.abs_path):
-            with open(self.abs_path, "wb") as file:
+        abs_path = self.abs_path
+
+        if abs_path is not None and os.path.exists(abs_path):
+            with open(abs_path, "wb") as file:
                 file.write(content)
 
     def __hash__(self) -> int:
@@ -318,7 +327,7 @@ class Savefile(Entity):
         if not isinstance(other, Savefile):
             return False
         return self.id == other.id or (
-            self.name == other.name
-            and self.rel_path == other.rel_path
-            and self.id_console == other.id_console
+                self.name == other.name
+                and self.rel_path == other.rel_path
+                and self.id_console == other.id_console
         )

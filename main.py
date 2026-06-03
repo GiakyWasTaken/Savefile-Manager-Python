@@ -8,7 +8,7 @@ import os
 import re
 import shutil
 from enum import Enum
-from typing import Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, NoReturn
 
 import dotenv
 from tqdm import tqdm
@@ -74,7 +74,7 @@ class ProcessingResult(Enum):
         DOWNLOADED: Savefile was downloaded successfully
         FAILED_CREATION: Failed to create the savefile
         FAILED_UPLOAD: Failed to update the remote savefile
-        FAILED_DOWNLOAD: Failed to download the savefile
+        FAILED_DOWNLOAD: Failed to update the local savefile
     """
 
     CONSOLE_FAILED = 0
@@ -191,12 +191,12 @@ def set_sized_description(pbar: Any, text: str, rel_path: str = "") -> None:
     except AttributeError:
         term_cols = 80
 
-    max_len = max(0, term_cols - int(extra))
+    max_len = max(0, term_cols - int(str(extra)))
 
     pbar.set_description(fit_text_to_width(max_len, text, rel_path))
 
 
-def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[Any]]:
+def create_progress_bars(total: int, is_console: bool) -> Tuple[tqdm[NoReturn], Optional[tqdm[NoReturn]]]:
     """Create progress bars for console or savefile processing
 
     Args:
@@ -204,12 +204,12 @@ def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[An
         is_console (bool): Whether the progress bars are for console or savefile processing
 
     Returns:
-        Tuple[Any, Optional[Any]]: The primary and secondary progress bars
+        Tuple[tqdm[NoReturn], Optional[tqdm[NoReturn]]]: The primary and secondary progress bars
     """
 
     stats = "{n_fmt:>3}/{total_fmt:>3}[{elapsed:>5}<{remaining:>5},{rate_fmt:>15}]"
 
-    common_kwargs: dict[str, Any] = {
+    common_kwargs: Dict[str, Any] = {
         "total": total,
         "leave": is_console,
         "dynamic_ncols": True,
@@ -265,7 +265,7 @@ def create_progress_bars(total: int, is_console: bool) -> Tuple[Any, Optional[An
     return progress_bar, pbar_2nd
 
 
-def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
+def extract_bash_array(env_file_path: str, array_name: str) -> List[str]:
     """
     Extracts a bash array from a .env file
 
@@ -274,7 +274,7 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
         array_name (str): Name of the array to extract
 
     Returns:
-        list[str]: List of values in the array, cleaned of comments and empty lines
+        List[str]: List of values in the array, cleaned of comments and empty lines
     """
 
     if not os.path.exists(env_file_path):
@@ -292,7 +292,7 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
 
     # Extract values and clean them
     raw_values = match.group(1).strip().split("\n")
-    values: list[str] = []
+    values: List[str] = []
 
     for line in raw_values:
         # Remove comments and empty lines
@@ -304,7 +304,7 @@ def extract_bash_array(env_file_path: str, array_name: str) -> list[str]:
     return values
 
 
-def setup_env() -> Tuple[list[str], list[str], str, Tuple[CrawlingMode, CrawlingMode]]:
+def setup_env() -> Tuple[List[str], List[str], str, Tuple[CrawlingMode, CrawlingMode]]:
     """
     Load environment variables from the .env file and return necessary configurations
 
@@ -330,7 +330,7 @@ def setup_env() -> Tuple[list[str], list[str], str, Tuple[CrawlingMode, Crawling
 
 
 def get_controllers(
-    api_url: str, token: str
+        api_url: str, token: str
 ) -> Tuple[ConsoleController, SavefileController]:
     """
     Initialize and return ConsoleController and SavefileController instances
@@ -403,39 +403,39 @@ def get_crawling_downloading_mode() -> Tuple[CrawlingMode, CrawlingMode]:
 
 
 def retrieve_local_consoles(
-    console_names: list[str],
-    console_controller: ConsoleController,
-    create_new_consoles: bool,
-) -> list[Console]:
+        console_names: List[str],
+        console_controller: ConsoleController,
+        create_new_consoles: bool,
+) -> List[Console]:
     """
     Retrieve models of local consoles based on the provided console names
 
     Args:
-        console_names (list[str]): List of local console names
+        console_names (List[str]): List of local console names
         console_controller (ConsoleController): Controller for console operations
         create_new_consoles (bool): Whether to create new consoles if they don't exist remotely
 
     Returns:
-        list[Console]: List of Console objects representing local consoles
+        List[Console]: List of Console objects representing local consoles
     """
 
     remote_consoles = console_controller.get_all() or []
 
     remote_console_names = [console.name for console in remote_consoles]
 
-    local_consoles: list[Console] = []
+    local_consoles: List[Console] = []
 
     for console_name in console_names:
         console = Console(name=console_name)
 
         # Check if the console already exists in the remote consoles
         if (console_name in remote_console_names and create_new_consoles) and (
-            search_result := console_controller.search(console)
+                search_result := console_controller.search(console)
         ):
             local_consoles.append(search_result[0])
         # If the console does not exist remotely create a new one
         elif console_name not in remote_console_names and (
-            save_result := console_controller.save(console)
+                save_result := console_controller.save(console)
         ):
             local_consoles.append(save_result)
         # If the console is not found or not created then add the console with only name
@@ -446,7 +446,7 @@ def retrieve_local_consoles(
 
 
 def handle_creating_savefile(
-    savefile: Savefile, savefile_controller: SavefileController, crawling_mode: Enum
+        savefile: Savefile, savefile_controller: SavefileController, crawling_mode: Enum
 ) -> ProcessingResult:
     """
     Handle a new savefile that does not exist in the database
@@ -463,9 +463,11 @@ def handle_creating_savefile(
     if crawling_mode in (CrawlingMode.UPDATE, CrawlingMode.FORCE):
         return ProcessingResult.IGNORED
 
+    console = savefile.console
+    console_name = console.name if console is not None else "Unknown"
+
     logger.log_info(
-        f"Creating savefile '{savefile.name}' in console "
-        f"'{savefile.console.name if savefile.console else 'Unknown'}'"
+        f"Creating savefile '{savefile.name}' in console '{console_name}'"
     )
 
     result = savefile_controller.save(savefile)
@@ -474,10 +476,10 @@ def handle_creating_savefile(
 
 
 def handle_downloading_savefile(
-    savefile: Savefile,
-    savefile_controller: SavefileController,
-    downloading_mode: CrawlingMode,
-    overwrite_existing: bool = False,
+        savefile: Savefile,
+        savefile_controller: SavefileController,
+        downloading_mode: CrawlingMode,
+        overwrite_existing: bool = False,
 ) -> ProcessingResult:
     """
     Handle a savefile that needs to be downloaded from the remote server
@@ -504,9 +506,9 @@ def handle_downloading_savefile(
 
 
 def handle_existing_savefile(
-    savefile: Savefile,
-    savefile_controller: SavefileController,
-    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
+        savefile: Savefile,
+        savefile_controller: SavefileController,
+        crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> ProcessingResult:
     """
     Handle a savefile that already exists in the database
@@ -520,7 +522,8 @@ def handle_existing_savefile(
         str: Result of the savefile handling
     """
 
-    console_name = savefile.console.name if savefile.console else "Unknown"
+    console = savefile.console
+    console_name = console.name if console is not None else "Unknown"
 
     # Skip if we only want new files
     if crawling_modes[0] == CrawlingMode.NEW:
@@ -532,8 +535,8 @@ def handle_existing_savefile(
 
     # For automatic update, check if update is needed
     if (
-        CrawlingMode.UPDATE not in crawling_modes
-        and CrawlingMode.AUTO not in crawling_modes
+            CrawlingMode.UPDATE not in crawling_modes
+            and CrawlingMode.AUTO not in crawling_modes
     ):
         return ProcessingResult.SKIPPED
 
@@ -580,10 +583,10 @@ def handle_existing_savefile(
 
 
 def process_savefile(
-    savefile: Savefile,
-    availability: SavefileAvailability,
-    savefile_controller: SavefileController,
-    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
+        savefile: Savefile,
+        availability: SavefileAvailability,
+        savefile_controller: SavefileController,
+        crawling_modes: Tuple[CrawlingMode, CrawlingMode],
 ) -> ProcessingResult:
     """
     Process a savefile by checking if it exists, and handling it based on the crawling mode
@@ -612,9 +615,9 @@ def process_savefile(
 
 
 def retrieve_local_remote_savefiles(
-    console: Console,
-    savefile_controller: SavefileController,
-) -> dict[Savefile, SavefileAvailability]:
+        console: Console,
+        savefile_controller: SavefileController,
+) -> Dict[Savefile, SavefileAvailability]:
     """
     Retrieve local and remote savefiles for a given console
 
@@ -623,12 +626,12 @@ def retrieve_local_remote_savefiles(
         savefile_controller (SavefileController): Controller for savefile operations
 
     Returns:
-        dict[Savefile, SavefileAvailability]: Dict mapping Savefile models to their availability
+        Dict[Savefile, SavefileAvailability]: Dict mapping Savefile models to their availability
     """
 
     # Get remote savefiles for this console
     remote_savefiles = (
-        savefile_controller.search(Savefile(id_console=console.id), True) or []
+            savefile_controller.search(Savefile(id_console=console.id), True) or []
     )
 
     # Set the console for each remote savefile
@@ -637,7 +640,7 @@ def retrieve_local_remote_savefiles(
         remote_savefile.modified_at = None
 
     # Create a dictionary to track which remote files exist locally
-    available_savefiles: dict[Savefile, SavefileAvailability] = {
+    available_savefiles: Dict[Savefile, SavefileAvailability] = {
         savefile: SavefileAvailability.REMOTE for savefile in remote_savefiles
     }
 
@@ -666,34 +669,34 @@ def retrieve_local_remote_savefiles(
 
 
 def update_progress_bars(
-    primary_bar: Any, secondary_bar: Optional[Any], do_close: bool = False
+        primary_bar: tqdm[NoReturn], secondary_bar: Optional[tqdm[NoReturn]], do_close: bool = False
 ) -> None:
     """Update both primary and secondary progress bars
 
     Args:
-        primary_bar (Any): The primary progress bar to update
-        secondary_bar (Optional[Any]): The secondary progress bar to update
+        primary_bar (tqdm[NoReturn]): The primary progress bar to update
+        secondary_bar (Optional[tqdm[NoReturn]]): The secondary progress bar to update
         do_close (bool, optional): Whether to close the progress bars. Defaults to False.
     """
 
     if do_close:
         primary_bar.close()
-        if secondary_bar is not None:
+        if isinstance(secondary_bar, tqdm):
             secondary_bar.close()
     else:
         primary_bar.update(1)
-        if secondary_bar is not None:
+        if isinstance(secondary_bar, tqdm):
             secondary_bar.update(1)
 
 
 def log_savefile_stats(
-    console_name: str, available_savefiles: dict[Savefile, SavefileAvailability]
+        console_name: str, available_savefiles: Dict[Savefile, SavefileAvailability]
 ) -> None:
     """Log statistics about the available savefiles
 
     Args:
         console_name (str): The name of the console
-        available_savefiles (dict[Savefile, SavefileAvailability]): The available savefiles
+        available_savefiles (Dict[Savefile, SavefileAvailability]): The available savefiles
     """
 
     logger.log_info(
@@ -714,10 +717,10 @@ def log_savefile_stats(
 
 
 def process_console_savefiles(
-    console: Console,
-    savefile_controller: SavefileController,
-    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
-) -> list[int]:
+        console: Console,
+        savefile_controller: SavefileController,
+        crawling_modes: Tuple[CrawlingMode, CrawlingMode],
+) -> List[int]:
     """Process all savefiles for a single console
 
     Args:
@@ -726,7 +729,7 @@ def process_console_savefiles(
         crawling_modes (Tuple[CrawlingMode, CrawlingMode]): The crawling modes to use
 
     Returns:
-        list[int]: The results of processing savefiles
+        List[int]: The results of processing savefiles
     """
 
     available_savefiles = retrieve_local_remote_savefiles(console, savefile_controller)
@@ -752,31 +755,31 @@ def process_console_savefiles(
 
 
 def crawl_savefiles(
-    console_names: list[str],
-    saves_paths: list[str],
-    console_controller: ConsoleController,
-    savefile_controller: SavefileController,
-    crawling_modes: Tuple[CrawlingMode, CrawlingMode],
-) -> dict[Console, list[int]]:
+        console_names: List[str],
+        saves_paths: List[str],
+        console_controller: ConsoleController,
+        savefile_controller: SavefileController,
+        crawling_modes: Tuple[CrawlingMode, CrawlingMode],
+) -> Dict[Console, List[int]]:
     """
     Crawl savefiles based on the provided parameters
 
     Args:
-        console_names (list[str]): List of local console names
-        saves_paths (list[str]): List of local savefile paths
+        console_names (List[str]): List of local console names
+        saves_paths (List[str]): List of local savefile paths
         console_controller (ConsoleController): Controller for console operations
         savefile_controller (SavefileController): Controller for savefile operations
         crawling_modes (Tuple[CrawlingMode, CrawlingMode]): Savefile crawling and downloading modes
 
     Returns:
-        dict[Console, list[int]]: Dictionary mapping consoles to their processing results
+        Dict[Console, List[int]]: Dictionary mapping consoles to their processing results
     """
 
     create_new_consoles = crawling_modes[0].value >= CrawlingMode.NEW.value
     local_consoles = retrieve_local_consoles(
         console_names, console_controller, create_new_consoles
     )
-    results: dict[Console, list[int]] = {}
+    results: Dict[Console, List[int]] = {}
 
     console_pbar, console_2nd_pbar = create_progress_bars(
         len(local_consoles), is_console=True
@@ -786,16 +789,17 @@ def crawl_savefiles(
         set_sized_description(console_pbar, console.name)
 
         if console.id is None:
-            results[console] = [1]
+            results[console] = [1] + [0] * 8
             update_progress_bars(console_pbar, console_2nd_pbar)
             continue
 
         logger.log_info(f'Processing console "{console.name}" with ID {console.id}')
         console.saves_path = saves_paths[index]
 
-        if not os.path.exists(console.saves_path):
+        if not isinstance(console.saves_path, str) or not os.path.exists(console.saves_path):
             logger.log_warning(f"Non existing path at {console.saves_path}")
-            results[console] = [1]
+
+            results[console] = [1] + [0] * 8
             update_progress_bars(console_pbar, console_2nd_pbar)
             continue
 
@@ -814,12 +818,12 @@ def crawl_savefiles(
     return results
 
 
-def print_results(results: dict[Console, list[int]]) -> None:
+def print_results(results: Dict[Console, List[int]]) -> None:
     """
     Print the results of the savefile crawling and downloading process
 
     Args:
-        results (dict[Console, list[int]]): Dictionary containing results for each console
+        results (Dict[Console, List[int]]): Dictionary containing results for each console
     """
 
     logger.log_info("Crawling results:")
@@ -870,10 +874,10 @@ def print_results(results: dict[Console, list[int]]) -> None:
     logger.log_success(f"Total consoles processed:            {len(results)}")
 
     if (
-        console_failed := sum(
-            counts[ProcessingResult.CONSOLE_FAILED.value] for counts in results.values()
-        )
-                          > 0
+            console_failed := sum(
+                counts[ProcessingResult.CONSOLE_FAILED.value] for counts in results.values()
+            )
+                              > 0
     ):
         logger.log_error(f"Total consoles with errors:          {console_failed}")
 
@@ -902,13 +906,13 @@ def print_results(results: dict[Console, list[int]]) -> None:
         )
 
     if (
-        total_savefiles_errors := sum(
-            counts[ProcessingResult.FAILED_CREATION.value]
-            + counts[ProcessingResult.FAILED_UPLOAD.value]
-            + counts[ProcessingResult.FAILED_DOWNLOAD.value]
-            for counts in results.values()
-        )
-                                  > 0
+            total_savefiles_errors := sum(
+                counts[ProcessingResult.FAILED_CREATION.value]
+                + counts[ProcessingResult.FAILED_UPLOAD.value]
+                + counts[ProcessingResult.FAILED_DOWNLOAD.value]
+                for counts in results.values()
+            )
+                                      > 0
     ):
         logger.log_error(
             f"Total savefiles with errors:         {total_savefiles_errors}"

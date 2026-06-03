@@ -131,7 +131,7 @@ export CONSOLE_NAMES=(
 
 
 def test_get_crawling_downloading_mode_defaults_to_auto_when_not_specified(
-    monkeypatch: MonkeyPatch
+        monkeypatch: MonkeyPatch
 ):
     """
     Ensure get_crawling_downloading_mode returns AUTO when no command line arguments are provided
@@ -195,7 +195,7 @@ def test_retrieve_local_consoles_creates_and_uses_remote():
             super().__init__(api_url, api_token)
             self._all = [Console(id=1, name="C1")]
 
-        def get_all(self):
+        def get_all(self, records: Optional[int] = None, offset: Optional[int] = None) -> List[Console]:
             """Simulate fetching all consoles"""
             return self._all
 
@@ -213,7 +213,7 @@ def test_retrieve_local_consoles_creates_and_uses_remote():
     controller = FakeController()
     # when create_new_consoles True, existing remote names should be returned
     res = main.retrieve_local_consoles(["C1", "C2"], controller, create_new_consoles=True)
-    assert isinstance(res, list)
+    assert isinstance(res, List)
     assert any(c.name == "C1" for c in res)
     assert any(c.name == "C2" for c in res)
 
@@ -392,7 +392,7 @@ def test_retrieve_local_remote_savefiles_detects_local_and_remote(tmp_path: Path
             self.raw = None
 
         def search(
-            self, model: Savefile, allow_multiple_results: bool = True, raw: bool = False
+                self, model: Savefile, allow_multiple_results: bool = True, raw: bool = False
         ) -> List[Savefile]:
             """Simulate searching for a savefile"""
             self.raw = raw
@@ -403,35 +403,6 @@ def test_retrieve_local_remote_savefiles_detects_local_and_remote(tmp_path: Path
     assert len(res) >= 1
     values = list(res.values())
     assert any(v == SavefileAvailability.BOTH for v in values)
-
-
-def test_update_progress_bars_updates_or_closes():
-    """
-    Ensure update_progress_bars calls update on the provided bars and closes them if do_close is
-    True
-    """
-
-    class Bar:
-        """A dummy progress bar class for testing"""
-
-        def __init__(self):
-            self.updated = 0
-            self.closed = False
-
-        def update(self, n: int = 1):
-            """Simulate updating the progress bar"""
-            self.updated += n
-
-        def close(self):
-            """Simulate closing the progress bar"""
-            self.closed = True
-
-    a = Bar()
-    b = Bar()
-    main.update_progress_bars(a, b)
-    assert a.updated == 1 and b.updated == 1
-    main.update_progress_bars(a, b, do_close=True)
-    assert a.closed and b.closed
 
 
 def test_log_savefile_stats_invokes_logger(monkeypatch: MonkeyPatch):
@@ -478,8 +449,8 @@ def test_process_console_savefiles_uses_process_savefile(monkeypatch: MonkeyPatc
     )
 
     def fake_process_savefiles(
-        savefile: Savefile, availability: SavefileAvailability, ctrl: SavefileController,
-        modes: Tuple[CrawlingMode, CrawlingMode]
+            savefile: Savefile, availability: SavefileAvailability, ctrl: SavefileController,
+            modes: Tuple[CrawlingMode, CrawlingMode]
     ) -> ProcessingResult:
         """
         Simulate processing savefiles for a console, returning a result of CREATED for the single

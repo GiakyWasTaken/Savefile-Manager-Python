@@ -6,7 +6,7 @@ Provides functionality to interact with savefile resources via API
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, override
+from typing import Any, Dict, Optional, override, Mapping
 
 from controller_base import ControllerBase
 from local_ssl_context import LocalSSLContext
@@ -19,9 +19,9 @@ class SavefileController(ControllerBase[Savefile]):
     """
 
     def __init__(
-        self,
-        api_url: str,
-        api_token: str,
+            self,
+            api_url: str,
+            api_token: str,
     ) -> None:
         super().__init__(api_url, api_token, model_class=Savefile)
 
@@ -38,9 +38,9 @@ class SavefileController(ControllerBase[Savefile]):
 
     @override
     def get_headers(
-        self,
-        accept: str = "application/json",
-        content_type: str = "application/json",
+            self,
+            accept: str = "application/json",
+            content_type: str = "application/json",
     ) -> Dict[str, str]:
         headers = super().get_headers(accept, content_type)
         headers.pop("Content-Type", None)
@@ -48,12 +48,14 @@ class SavefileController(ControllerBase[Savefile]):
 
     @override
     def get(
-        self, resource_id: int, download_path: Optional[str] = None
+            self, resource_id: int, download_path: Optional[str] = None
     ) -> Optional[Savefile]:
-        savefile_model = super().get(resource_id)
+        entity_model = super().get(resource_id)
 
-        if download_path is None or savefile_model is None:
-            return savefile_model
+        if download_path is None or entity_model is None or not isinstance(entity_model, Savefile):
+            return None
+
+        savefile_model = entity_model
 
         # Make a request to download the file
         url = f"{self.api_url}/{self.resource}/{resource_id}"
@@ -111,10 +113,15 @@ class SavefileController(ControllerBase[Savefile]):
 
         data = super().convert_to_json(model)
 
+        if model.savefile:
+            files: Mapping[str, Any] = {"savefile": model.savefile}
+        else:
+            files = None
+
         response = LocalSSLContext.get_session().post(
             url,
             data=data,
-            files={"savefile": model.savefile} if model.savefile else None,
+            files=files,
             headers=headers,
             timeout=10,
         )
@@ -131,10 +138,15 @@ class SavefileController(ControllerBase[Savefile]):
         # PHP compatibility for PUT requests with multipart/form-data
         data["_method"] = "PUT"
 
+        if model.savefile:
+            files: Mapping[str, Any] = {"savefile": model.savefile}
+        else:
+            files = None
+
         response = LocalSSLContext.get_session().post(
             url,
             data=data,
-            files={"savefile": model.savefile} if model.savefile else None,
+            files=files,
             headers=headers,
             timeout=10,
         )

@@ -4,7 +4,7 @@ Provides generic methods for CRUD operations on resources
 """
 
 from abc import ABC
-from typing import Any, Dict, List, Optional, Generic, TypeVar, Type, Union
+from typing import Any, Dict, List, Optional, Generic, TypeVar, Type, Union, cast
 
 from requests import Response
 
@@ -22,10 +22,10 @@ class ControllerBase(ABC, Generic[T]):
     """
 
     def __init__(
-        self,
-        api_url: str,
-        api_token: str,
-        model_class: Type[T],
+            self,
+            api_url: str,
+            api_token: str,
+            model_class: Type[T],
     ) -> None:
         self.api_url = api_url
         self.api_token = api_token
@@ -40,7 +40,7 @@ class ControllerBase(ABC, Generic[T]):
         )
 
     def get_headers(
-        self, accept: str = "application/json", content_type: str = "application/json"
+            self, accept: str = "application/json", content_type: str = "application/json"
     ) -> Dict[str, str]:
         """
         Generate headers for API requests
@@ -89,24 +89,26 @@ class ControllerBase(ABC, Generic[T]):
         return mapped_data
 
     def convert_to_model(
-        self, data: Union[List[Dict[str, Any]], Dict[str, Any]]
-    ) -> Union[List[T], T]:
+            self, data: Union[List[Dict[str, Any]], Dict[str, Any]]
+    ) -> Optional[Union[List[T], T]]:
         """
         Convert API response data to a model instance
 
         Args:
-            data (Any): API response data
+            data (Union[List[Dict[str, Any]], Dict[str, Any]]): API response data
 
         Returns:
-            Union[List[T], T]: Model instance or list of model instances
+            Optional[Union[List[T], T]]: Model instance or list of model instances
         """
+        model = None
+
         if self.model_class:
-            if isinstance(data, dict):
+            if isinstance(data, Dict):
                 instance = self.model_class()
                 instance.from_json(self.mapper(data))
 
                 model = instance
-            else:
+            elif isinstance(data, List):
                 result: List[T] = []
 
                 for item in data:
@@ -136,15 +138,12 @@ class ControllerBase(ABC, Generic[T]):
 
             reverse_mapping = {v: k for k, v in self.field_mapping().items()}
 
-            # Define serializable types
-            serializable_types = (type(None), bool, int, float, str, list, Dict)
-
             for key, value in json_model.items():
                 if value is None:
                     continue
 
                 # Only include serializable values
-                if isinstance(value, serializable_types) and key in reverse_mapping:
+                if key in reverse_mapping:
                     mapped_key = reverse_mapping[key]
                     mapped_json[mapped_key] = value
         else:
@@ -166,7 +165,7 @@ class ControllerBase(ABC, Generic[T]):
         headers = self.get_headers()
 
         response = LocalSSLContext.get_session().get(url, headers=headers, timeout=10)
-        result = None
+        result: Optional[T] = None
 
         self.logger.log_debug(
             f"GET {url} - Response: {response.status_code} - {response.text}"
@@ -174,8 +173,12 @@ class ControllerBase(ABC, Generic[T]):
 
         if response.status_code == 200:
             self.logger.log_info(f"Fetched {self.resource} with ID {resource_id}")
-            result = self.convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
+            converted = self.convert_to_model(response.json())
+
+            if isinstance(converted, List):
+                result = converted[0]
+            else:
+                result = cast(Optional[T], converted)
         elif response.status_code == 404:
             self.logger.log_warning(
                 f"{self.resource.capitalize()} with ID {resource_id} not found"
@@ -188,9 +191,15 @@ class ControllerBase(ABC, Generic[T]):
 
         return result
 
-    def get_all(self) -> Optional[List[T]]:
+    def get_all(
+            self, records: Optional[int] = None, offset: Optional[int] = None
+    ) -> Optional[List[T]]:
         """
         Retrieve all resources of the specified type
+
+        Args:
+            records (Optional[int]): Number of records to retrieve
+            offset (Optional[int]): Offset for pagination
 
         Returns:
             Union[List[T], T, None]: List of all resources as model instances, or None if not found
@@ -198,29 +207,49 @@ class ControllerBase(ABC, Generic[T]):
         url = f"{self.api_url}/{self.resource}"
         headers = self.get_headers()
 
-        response = LocalSSLContext.get_session().get(url, headers=headers, timeout=10)
-        result = None
+        params: Dict[str, int] = {}
+
+        if records is not None:
+            params["records"] = records
+
+        if offset is not None:
+            params["offset"] = offset
+
+        response = LocalSSLContext.get_session().get(
+            url, headers=headers, params=params, timeout=10
+        )
+        result: Optional[List[T]] = None
 
         self.logger.log_debug(
             f"GET {url} - Response: {response.status_code} - {response.text}"
         )
 
         if response.status_code == 200:
-            self.logger.log_info(f"Fetched all {self.resource}s")
-            result = self.convert_to_model(response.json()) if response.json() else []
+            self.logger.log_info(
+                f"Fetched {len(response.json())} {self.resource}"
+                f"{'s' if len(response.json()) != 1 else ''}"
+                f"{' starting at ' + str(offset) if offset else ''}"
+            )
 
-            if not isinstance(result, list):
-                result = [result]
+            converted = self.convert_to_model(response.json()) if response.json() else []
+
+            if isinstance(converted, List):
+                result = converted
+            elif isinstance(converted, self.model_class):
+                result = [converted]
         else:
             self.logger.log_error(
-                f"Error fetching all {self.resource}s: {response.status_code} - {response.text}"
+                f"Error fetching {records if records else ''} {self.resource}"
+                f"{'s' if records != 1 else ''}"
+                f"{' starting at ' + str(offset) if offset else ''}: "
+                f": {response.status_code} - {response.text}"
             )
 
         return result
 
     def search(
-        self, model: T, allow_multiple_results: bool = False
-    ) -> Optional[list[T]]:
+            self, model: T, allow_multiple_results: bool = False
+    ) -> Optional[List[T]]:
         """
         Search for a resource matching the given model
 
@@ -347,7 +376,7 @@ class ControllerBase(ABC, Generic[T]):
 
     @staticmethod
     def _have_same_values(
-        model_json: Dict[str, Any], item_json: Dict[str, Any]
+            model_json: Dict[str, Any], item_json: Dict[str, Any]
     ) -> bool:
         """
         Check if an item matches the search criteria
@@ -368,11 +397,11 @@ class ControllerBase(ABC, Generic[T]):
         return True
 
     def _log_and_handle_response(
-        self,
-        response: Response,
-        method: str,
-        url: str,
-        model_id: Optional[int] = None,
+            self,
+            response: Response,
+            method: str,
+            url: str,
+            model_id: Optional[int] = None,
     ) -> Optional[T]:
         """
         Log the request/response and delegate to the appropriate handler
@@ -406,12 +435,17 @@ class ControllerBase(ABC, Generic[T]):
         Returns:
             Optional[T]: Created resource as a model instance, or None if an error occurs
         """
-        result = None
+        result: Optional[T] = None
 
         if response.status_code == 201:
             self.logger.log_info(f"Created new {self.resource}")
-            result = self.convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
+
+            converted = self.convert_to_model(response.json())
+
+            if isinstance(converted, List):
+                result = converted[0]
+            else:
+                result = cast(Optional[T], converted)
         elif response.status_code == 409:
             self.logger.log_warning(
                 f"Another {self.resource} with the same data already exists"
@@ -424,7 +458,7 @@ class ControllerBase(ABC, Generic[T]):
         return result
 
     def _handle_update_response(
-        self, response: Response, model_id: Optional[int]
+            self, response: Response, model_id: Optional[int]
     ) -> Optional[T]:
         """
         Handle the response from an update (PUT) request
@@ -436,12 +470,16 @@ class ControllerBase(ABC, Generic[T]):
         Returns:
             Optional[T]: Updated resource as a model instance, or None if an error occurs
         """
-        result = None
+        result: Optional[T] = None
 
         if response.status_code in (200, 204):
             self.logger.log_info(f"Updated {self.resource} with ID {model_id}")
-            result = self.convert_to_model(response.json())
-            result = result[0] if isinstance(result, list) else result
+
+            converted = self.convert_to_model(response.json())
+            if isinstance(converted, List):
+                result = converted[0]
+            else:
+                result = cast(Optional[T], converted)
         elif response.status_code == 404:
             self.logger.log_warning(
                 f"{self.resource.capitalize()} with ID {model_id} not found"

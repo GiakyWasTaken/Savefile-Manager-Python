@@ -1,6 +1,7 @@
 """Unit tests for the Models module"""
 
 import os
+from typing import Dict
 
 from models import Console, JSONType, Savefile
 
@@ -17,7 +18,7 @@ def test_model_from_json():
     Test the from_json method of the Model class
     """
 
-    json_data: JSONType = {
+    json_data: Dict[str, JSONType] = {
         "id": 1,
         "name": CONSOLE_NAME,
         "created_at": CREATED_AT,
@@ -40,7 +41,7 @@ def test_model_from_json_fails():
     Test the from_json method of the Model class with invalid data
     """
 
-    json_data: JSONType = {
+    json_data: Dict[str, JSONType] = {
         "id": "invalid_id",
         "name": CONSOLE_NAME,
         "created_at": "invalid_date",
@@ -112,7 +113,7 @@ def test_savefile_from_json():
     """
     Test the from_json method of the Savefile class
     """
-    json_data: JSONType = {
+    json_data: Dict[str, JSONType] = {
         "id": "1",
         "name": SAVEFILE_NAME,
         "created_at": CREATED_AT,
